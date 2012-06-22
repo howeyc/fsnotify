@@ -222,7 +222,7 @@ func (m watchMap) set(ino *inode, watch *watch) {
 }
 
 // Must run within the I/O thread.
-func (w *Watcher) addWatch(pathname string, flags uint64) error {
+func (w *Watcher) AddWatch(pathname string, flags uint64) error {
         dir, err := getDir(pathname)
         if err != nil {
                 return err
@@ -378,7 +378,7 @@ func (w *Watcher) readEvents() {
                         case in := <-w.input:
                                 switch in.op {
                                 case opAddWatch:
-                                        in.reply <- w.addWatch(in.path, uint64(in.flags))
+                                        in.reply <- w.AddWatch(in.path, uint64(in.flags))
                                 case opRemoveWatch:
                                         in.reply <- w.removeWatch(in.path)
                                 }
