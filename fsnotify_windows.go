@@ -100,7 +100,7 @@ type watch struct {
 	mask   uint64            // Directory itself is being watched with these notify flags
 	names  map[string]uint64 // Map of names being watched and their notify flags
 	rename string            // Remembers the old name while renaming a file
-	buf    [4096]byte
+	buf    [128]byte
 }
 
 type indexMap map[uint64]*watch
@@ -449,8 +449,7 @@ func (w *Watcher) readEvents() {
 				//The i/o succeeded but buffer is full
 				//in theory we should be building up a full packet
 				//in practice we can get away with just carrying on
-				//should be len(watch.buf) possibly?
-				n = 4096
+				n = len(watch.buf)
 			}
 		case syscall.ERROR_ACCESS_DENIED:
 			// Watched directory was probably removed
@@ -526,6 +525,11 @@ func (w *Watcher) readEvents() {
 				break
 			}
 			offset += raw.NextEntryOffset
+
+			// Error!
+			if offset >= n {
+				panic(fmt.Errorf("possible buffer overrun about to occur. Offset: %d, Len: %d\n", offset, n))
+			}
 		}
 
 		if err := w.startRead(watch); err != nil {
