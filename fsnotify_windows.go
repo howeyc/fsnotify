@@ -42,7 +42,7 @@ const (
 )
 
 const (
-	ERROR_MORE_DATA syscall.Errno = 234
+	sys_ERROR_MORE_DATA syscall.Errno = 234
 )
 
 // Event is the type of the notification messages
@@ -442,7 +442,7 @@ func (w *Watcher) readEvents() {
 		}
 
 		switch e {
-		case ERROR_MORE_DATA:
+		case sys_ERROR_MORE_DATA:
 			if watch == nil {
 				w.Error <- errors.New("ERROR_MORE_DATA has unexpectedly null lpOverlapped buffer")
 			} else {
