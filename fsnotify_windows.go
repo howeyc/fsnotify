@@ -449,7 +449,6 @@ func (w *Watcher) readEvents() {
 				//The i/o succeeded but buffer is full
 				//in theory we should be building up a full packet
 				//in practice we can get away with just carrying on
-				w.Error <- errors.New("ERROR_MORE_DATA has occured, assuming full buffer returned from system")
 				n = uint32(unsafe.Sizeof(watch.buf))
 			}
 		case syscall.ERROR_ACCESS_DENIED:
