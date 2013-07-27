@@ -34,6 +34,8 @@ func main() {
 				log.Println("event:", ev)
 			case err := <-watcher.Error:
 				log.Println("error:", err)
+			case <-done:
+				return
 			}
 		}
 	}()
@@ -43,10 +45,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	<-done
-
 	/* ... do stuff ... */
 	watcher.Close()
+	done<-true
 }
 ```
 
