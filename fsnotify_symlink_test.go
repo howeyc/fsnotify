@@ -14,7 +14,11 @@ import (
 )
 
 func TestFsnotifyFakeSymlink(t *testing.T) {
-	// Create an fsnotify watcher instance and initialize it
+	if testing.Short() {
+      t.Skip("skipping integration test in short mode")
+  }
+
+  // Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
 		t.Fatalf("NewWatcher() failed: %s", err)
