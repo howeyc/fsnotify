@@ -16,31 +16,15 @@ const (
 	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE
 )
 
-// Purge events from interal chan to external chan if passes filter
-func (w *Watcher) purgeEvents() {
+// Forward events from interal chan to external chan if passes filter
+func (w *Watcher) forwardEvents() {
 	for ev := range w.internalEvent {
-		sendEvent := false
-		w.fsnmut.Lock()
-		fsnFlags := w.fsnFlags[ev.Name]
-		w.fsnmut.Unlock()
+		w.pipelinesmut.Lock()
+		pipeline := w.pipelines[ev.fileName()]
+		w.pipelinesmut.Unlock()
 
-		if (fsnFlags&FSN_CREATE == FSN_CREATE) && ev.IsCreate() {
-			sendEvent = true
-		}
-
-		if (fsnFlags&FSN_MODIFY == FSN_MODIFY) && ev.IsModify() {
-			sendEvent = true
-		}
-
-		if (fsnFlags&FSN_DELETE == FSN_DELETE) && ev.IsDelete() {
-			sendEvent = true
-		}
-
-		if (fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
-			sendEvent = true
-		}
-
-		if sendEvent {
+		forward := pipeline.processEvent(ev)
+		if forward {
 			w.Event <- ev
 		}
 
@@ -48,9 +32,9 @@ func (w *Watcher) purgeEvents() {
 		// BSD must keep watch for internal use (watches DELETEs to keep track
 		// what files exist for create events)
 		if ev.IsDelete() {
-			w.fsnmut.Lock()
-			delete(w.fsnFlags, ev.Name)
-			w.fsnmut.Unlock()
+			w.pipelinesmut.Lock()
+			delete(w.pipelines, ev.fileName())
+			w.pipelinesmut.Unlock()
 		}
 	}
 
@@ -59,25 +43,25 @@ func (w *Watcher) purgeEvents() {
 
 // Watch a given file path
 func (w *Watcher) Watch(path string) error {
-	w.fsnmut.Lock()
-	w.fsnFlags[path] = FSN_ALL
-	w.fsnmut.Unlock()
+	w.pipelinesmut.Lock()
+	w.pipelines[path] = pipeline{fsnFlags: FSN_ALL}
+	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }
 
 // Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
 func (w *Watcher) WatchFlags(path string, flags uint32) error {
-	w.fsnmut.Lock()
-	w.fsnFlags[path] = flags
-	w.fsnmut.Unlock()
+	w.pipelinesmut.Lock()
+	w.pipelines[path] = pipeline{fsnFlags: flags}
+	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }
 
 // Remove a watch on a file
 func (w *Watcher) RemoveWatch(path string) error {
-	w.fsnmut.Lock()
-	delete(w.fsnFlags, path)
-	w.fsnmut.Unlock()
+	w.pipelinesmut.Lock()
+	delete(w.pipelines, path)
+	w.pipelinesmut.Unlock()
 	return w.removeWatch(path)
 }
 
@@ -106,5 +90,5 @@ func (e *FileEvent) String() string {
 		events = events[1:]
 	}
 
-	return fmt.Sprintf("%q: %s", e.Name, events)
+	return fmt.Sprintf("%q: %s", e.fileName(), events)
 }
