@@ -44,7 +44,7 @@ func (w *Watcher) forwardEvents() {
 // Watch a given file path
 func (w *Watcher) Watch(path string) error {
 	w.pipelinesmut.Lock()
-	w.pipelines[path] = pipeline{fsnFlags: FSN_ALL}
+	w.pipelines[path] = newPipeline(FSN_ALL)
 	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }
@@ -52,7 +52,7 @@ func (w *Watcher) Watch(path string) error {
 // Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
 func (w *Watcher) WatchFlags(path string, flags uint32) error {
 	w.pipelinesmut.Lock()
-	w.pipelines[path] = pipeline{fsnFlags: flags}
+	w.pipelines[path] = newPipeline(flags)
 	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }

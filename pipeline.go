@@ -5,6 +5,7 @@
 // Package fsnotify implements filesystem notification.
 package fsnotify
 
+//  notifier is the interface for notifications/events
 type notifier interface {
 	IsCreate() bool
 	IsDelete() bool
@@ -17,23 +18,37 @@ type notifier interface {
   A pipeline to process events
 */
 type pipeline struct {
-	fsnFlags uint32 // flags used for triggers() filter
+	fsnFlags uint32   // flags used for triggers() filter
+	steps    []stepFn // enabled pipeline steps to run
 }
 
-// step filters an event, returning true to forward it on
-type step func(*pipeline, notifier) bool
+// stepFn filters an event, returning true to forward it on
+type stepFn func(*pipeline, notifier) bool
 
-// the full pipeline, order is important
-var allSteps = []step{
-	(*pipeline).triggers,
+// maximum steps in the pipeline
+const maxSteps = 1
+
+// newPipeline creates a pipeline and enables the steps
+// this function signature is gonna change!
+func newPipeline(flags uint32) pipeline {
+	p := pipeline{steps: make([]stepFn, 0, maxSteps)}
+
+	// triggers step
+	if flags != FSN_ALL {
+		p.fsnFlags = flags
+		p.steps = append(p.steps, (*pipeline).triggers)
+	}
+
+	return p
 }
 
 // processes an event and returns true if it should be forwarded
 func (p *pipeline) processEvent(event notifier) bool {
 	forward := true
-	for _, process := range allSteps {
+	for _, process := range p.steps {
 		if !process(p, event) {
 			forward = false
+			// TODO: may want to abort running the remaining pipeline steps
 		}
 	}
 	return forward

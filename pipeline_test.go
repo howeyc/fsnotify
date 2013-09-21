@@ -28,7 +28,7 @@ var (
 )
 
 func TestTriggerAllEventsFiltersNothing(t *testing.T) {
-	p := &pipeline{fsnFlags: FSN_ALL}
+	p := newPipeline(FSN_ALL)
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -48,7 +48,7 @@ func TestTriggerAllEventsFiltersNothing(t *testing.T) {
 }
 
 func TestTriggerDeleteFiltersOtherEvents(t *testing.T) {
-	p := &pipeline{fsnFlags: FSN_DELETE}
+	p := newPipeline(FSN_DELETE)
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -68,7 +68,7 @@ func TestTriggerDeleteFiltersOtherEvents(t *testing.T) {
 }
 
 func TestTriggerCreateModifyFiltersOtherEvents(t *testing.T) {
-	p := &pipeline{fsnFlags: FSN_CREATE | FSN_MODIFY}
+	p := newPipeline(FSN_CREATE | FSN_MODIFY)
 
 	var tests = []struct {
 		event   *fakeEvent
