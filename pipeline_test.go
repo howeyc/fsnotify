@@ -20,6 +20,9 @@ func (e *fakeEvent) IsRename() bool   { return e.rename }
 func (e *fakeEvent) fileName() string { return e.name }
 func (e *fakeEvent) String() string   { return e.description }
 
+/*
+  Triggers option
+*/
 var (
 	createEvent = &fakeEvent{create: true, description: "Create"}
 	deleteEvent = &fakeEvent{delete: true, description: "Delete"}
@@ -87,6 +90,9 @@ func TestTriggerCreateModifyFiltersOtherEvents(t *testing.T) {
 	}
 }
 
+/*
+  Hidden option
+*/
 var (
 	hiddenEvent  = &fakeEvent{create: true, name: ".subl26d.tmp", description: "hidden file"}
 	visibleEvent = &fakeEvent{create: true, name: "main.go", description: "visible file"}
@@ -108,5 +114,49 @@ func TestHiddenIncludesHiddenEvent(t *testing.T) {
 
 	if forward := p.processEvent(hiddenEvent); forward != true {
 		t.Errorf("Include hidden should not filter %v event, want forward=%t got %t", hiddenEvent, true, forward)
+	}
+}
+
+/*
+  Pattern
+*/
+var (
+	goEvent = &fakeEvent{create: true, name: "main.go", description: "go file"}
+	cEvent  = &fakeEvent{create: true, name: "main.c", description: "c file"}
+	mdEvent = &fakeEvent{create: true, name: "README.md", description: "markdown file"}
+)
+
+func TestNoPattern(t *testing.T) {
+	p := newPipeline(&Options{Pattern: ""})
+	if p.processEvent(cEvent) != true {
+		t.Errorf("No pattern should forward %v", cEvent)
+	}
+}
+
+func TestSinglePattern(t *testing.T) {
+	p := newPipeline(&Options{Pattern: "*.go"})
+
+	if forward := p.processEvent(goEvent); forward != true {
+		t.Errorf("*.go pattern should forward %v", goEvent)
+	}
+
+	if forward := p.processEvent(cEvent); forward != false {
+		t.Errorf("*.go pattern should not forward %v", cEvent)
+	}
+}
+
+func TestMultiplePatterns(t *testing.T) {
+	p := newPipeline(&Options{Pattern: "*.go,*.c"})
+
+	if forward := p.processEvent(goEvent); forward != true {
+		t.Errorf("*.go,*.c pattern should forward %v", goEvent)
+	}
+
+	if forward := p.processEvent(cEvent); forward != true {
+		t.Errorf("*.go,*.c pattern should forward %v", cEvent)
+	}
+
+	if forward := p.processEvent(mdEvent); forward != false {
+		t.Errorf("*.go,*.c pattern should not forward %v", mdEvent)
 	}
 }

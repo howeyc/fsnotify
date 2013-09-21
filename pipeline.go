@@ -6,6 +6,7 @@
 package fsnotify
 
 import (
+	"path/filepath"
 	"strings"
 )
 
@@ -23,6 +24,7 @@ type notifier interface {
 */
 type pipeline struct {
 	triggers Triggers
+	patterns []string
 	steps    []stepFn // enabled pipeline steps to run
 }
 
@@ -38,15 +40,26 @@ func newPipeline(opt *Options) pipeline {
 
 	// setup pipeline steps, order matters
 
+	// TODO: Verbose option to setup loggingStep
+
 	// hidden setup
 	if !opt.Hidden {
 		p.steps = append(p.steps, (*pipeline).hiddenStep)
 	}
 
+	// TODO: Recursive option may setup autoWatchStep (consult adapter)
+	// watch created directories unless they are hidden but even if ignoring Create Trigger
+
 	// triggers setup
 	if opt.Triggers != allEvents && opt.Triggers != 0 {
 		p.triggers = opt.Triggers
 		p.steps = append(p.steps, (*pipeline).triggerStep)
+	}
+
+	// pattern setup
+	if opt.Pattern != "" {
+		p.patterns = strings.Split(opt.Pattern, ",")
+		p.steps = append(p.steps, (*pipeline).patternStep)
 	}
 
 	return p
@@ -92,5 +105,17 @@ func (p *pipeline) triggerStep(ev notifier) bool {
 		return true
 	}
 
+	return false
+}
+
+// patternStep discards events that don't match one of the shell file name patterns
+func (p *pipeline) patternStep(ev notifier) bool {
+	for _, pattern := range p.patterns {
+		matched, err := filepath.Match(pattern, ev.fileName())
+		// treat ErrBadPattern as a non-match:
+		if err == nil && matched {
+			return true
+		}
+	}
 	return false
 }
