@@ -6,6 +6,7 @@
 package fsnotify
 
 import (
+	"log"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -25,6 +26,7 @@ type notifier interface {
   A pipeline to process events
 */
 type pipeline struct {
+	verbose        bool
 	triggers       Triggers             // event types to forward on
 	patterns       []string             // file name patterns
 	lastEventAt    map[string]time.Time // file name -> last ran for throttling
@@ -44,7 +46,11 @@ func newPipeline(opt *Options) pipeline {
 
 	// setup pipeline steps, order matters
 
-	// TODO: Verbose option to setup loggingStep
+	// logging setup
+	if opt.Verbose {
+		p.verbose = true
+		p.steps = append(p.steps, (*pipeline).verboseStep)
+	}
 
 	// hidden setup
 	if !opt.Hidden {
@@ -79,19 +85,28 @@ func newPipeline(opt *Options) pipeline {
 
 // processes an event and returns true if it should be forwarded
 func (p *pipeline) processEvent(event notifier) bool {
-	forward := true
 	for _, process := range p.steps {
 		if !process(p, event) {
-			forward = false
-			// TODO: may want to abort running the remaining pipeline steps
+			// early abort, don't run other pipeline steps
+			return false
 		}
 	}
-	return forward
+	return true // forward event
+}
+
+// verboseStep logs events
+func (p *pipeline) verboseStep(ev notifier) bool {
+	log.Printf("new event %v", ev)
+	return true
 }
 
 // hiddenStep discards events for hidden files (.DS_Store, .subl26d.tmp) and directories (.git, .hg, .bzr)
 func (p *pipeline) hiddenStep(ev notifier) bool {
-	return !isHidden(ev.fileName())
+	forward := !isHidden(ev.fileName())
+	if p.verbose && !forward {
+		log.Printf("hidden cancels %v", ev)
+	}
+	return forward
 }
 
 func isHidden(name string) bool {
@@ -147,5 +162,8 @@ func (p *pipeline) throttleStep(ev notifier) bool {
 	}
 	p.lastEventMutex.Unlock()
 
+	if p.verbose {
+		log.Printf("thottle forward=%t for %v", forward, ev)
+	}
 	return forward
 }

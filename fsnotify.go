@@ -9,6 +9,7 @@ import "fmt"
 
 // Options for watching paths
 type Options struct {
+	Verbose  bool     // log events, helpful for debugging
 	Hidden   bool     // include hidden files (.DS_Store) and directories (.git, .hg)
 	Triggers Triggers // Create | Modify | Delete | Rename events (default: all)
 	Pattern  string   // comma separated list of shell file name patterns (see filepath.Match)
