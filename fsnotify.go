@@ -12,6 +12,7 @@ type Options struct {
 	Hidden   bool     // include hidden files (.DS_Store) and directories (.git, .hg)
 	Triggers Triggers // Create | Modify | Delete | Rename events (default: all)
 	Pattern  string   // comma separated list of shell file name patterns (see filepath.Match)
+	Throttle bool     // events on a file are discarded for the next second
 }
 
 // Trigger types to watch for

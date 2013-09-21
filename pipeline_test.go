@@ -160,3 +160,29 @@ func TestMultiplePatterns(t *testing.T) {
 		t.Errorf("*.go,*.c pattern should not forward %v", mdEvent)
 	}
 }
+
+/*
+  Throttle
+*/
+func TestThrottleSameEvent(t *testing.T) {
+	p := newPipeline(&Options{Throttle: true})
+
+	if forward := p.processEvent(goEvent); forward != true {
+		t.Errorf("Throttle should forward %v event on leading edge", goEvent)
+	}
+	if forward := p.processEvent(goEvent); forward != false {
+		t.Errorf("Throttle should not forward %v event a second time", goEvent)
+	}
+	// TODO: it should forward again after latency time
+}
+
+func TestThrottleDifferentEvents(t *testing.T) {
+	p := newPipeline(&Options{Throttle: true})
+
+	if forward := p.processEvent(goEvent); forward != true {
+		t.Errorf("Throttle should forward %v event", goEvent)
+	}
+	if forward := p.processEvent(cEvent); forward != true {
+		t.Errorf("Throttle should forward %v event", cEvent)
+	}
+}

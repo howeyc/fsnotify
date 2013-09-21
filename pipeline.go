@@ -8,6 +8,8 @@ package fsnotify
 import (
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 )
 
 //  notifier is the interface for notifications/events
@@ -23,16 +25,18 @@ type notifier interface {
   A pipeline to process events
 */
 type pipeline struct {
-	triggers Triggers
-	patterns []string
-	steps    []stepFn // enabled pipeline steps to run
+	triggers       Triggers             // event types to forward on
+	patterns       []string             // file name patterns
+	lastEventAt    map[string]time.Time // file name -> last ran for throttling
+	lastEventMutex sync.Mutex
+	steps          []stepFn // enabled pipeline steps to run
 }
 
 // stepFn filters an event, returning true to forward it on
 type stepFn func(*pipeline, notifier) bool
 
 // maximum steps in the pipeline
-const maxSteps = 1
+const maxSteps = 4
 
 // newPipeline creates a pipeline and enables the steps
 func newPipeline(opt *Options) pipeline {
@@ -60,6 +64,14 @@ func newPipeline(opt *Options) pipeline {
 	if opt.Pattern != "" {
 		p.patterns = strings.Split(opt.Pattern, ",")
 		p.steps = append(p.steps, (*pipeline).patternStep)
+	}
+
+	// throttle setup
+	if opt.Throttle {
+		// TODO: ask adapter if it can handle throttling for us
+		// TODO: leading/trailing and configurable latency
+		p.lastEventAt = make(map[string]time.Time, 20)
+		p.steps = append(p.steps, (*pipeline).throttleStep)
 	}
 
 	return p
@@ -118,4 +130,22 @@ func (p *pipeline) patternStep(ev notifier) bool {
 		}
 	}
 	return false
+}
+
+const throttleLatency = 1 * time.Second
+
+// throttleStep
+func (p *pipeline) throttleStep(ev notifier) bool {
+	forward := true
+
+	p.lastEventMutex.Lock()
+	eventAt, ok := p.lastEventAt[ev.fileName()]
+	if ok && time.Now().Sub(eventAt) <= throttleLatency {
+		forward = false
+	} else {
+		p.lastEventAt[ev.fileName()] = time.Now()
+	}
+	p.lastEventMutex.Unlock()
+
+	return forward
 }
