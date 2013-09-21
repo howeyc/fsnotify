@@ -5,6 +5,10 @@
 // Package fsnotify implements filesystem notification.
 package fsnotify
 
+import (
+	"strings"
+)
+
 //  notifier is the interface for notifications/events
 type notifier interface {
 	IsCreate() bool
@@ -29,12 +33,19 @@ type stepFn func(*pipeline, notifier) bool
 const maxSteps = 1
 
 // newPipeline creates a pipeline and enables the steps
-func newPipeline(opt options) pipeline {
+func newPipeline(opt *Options) pipeline {
 	p := pipeline{steps: make([]stepFn, 0, maxSteps)}
 
+	// setup pipeline steps, order matters
+
+	// hidden setup
+	if !opt.Hidden {
+		p.steps = append(p.steps, (*pipeline).hiddenStep)
+	}
+
 	// triggers setup
-	if opt.triggers != allEvents && opt.triggers != 0 {
-		p.triggers = opt.triggers
+	if opt.Triggers != allEvents && opt.Triggers != 0 {
+		p.triggers = opt.Triggers
 		p.steps = append(p.steps, (*pipeline).triggerStep)
 	}
 
@@ -53,7 +64,17 @@ func (p *pipeline) processEvent(event notifier) bool {
 	return forward
 }
 
-// triggers discards any combination of create, modify, delete, or rename events
+// hiddenStep discards events for hidden files (.DS_Store, .subl26d.tmp) and directories (.git, .hg, .bzr)
+func (p *pipeline) hiddenStep(ev notifier) bool {
+	return !isHidden(ev.fileName())
+}
+
+func isHidden(name string) bool {
+	// TODO: what about hidden on Windows?
+	return strings.HasPrefix(name, ".") && name != "." && name != ".."
+}
+
+// triggerStep discards any combination of create, modify, delete, or rename events
 func (p *pipeline) triggerStep(ev notifier) bool {
 	if (p.triggers&Create == Create) && ev.IsCreate() {
 		return true

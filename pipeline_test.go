@@ -28,7 +28,7 @@ var (
 )
 
 func TestTriggerAllEventsFiltersNothing(t *testing.T) {
-	p := newPipeline(options{})
+	p := newPipeline(&Options{Triggers: allEvents})
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -48,7 +48,7 @@ func TestTriggerAllEventsFiltersNothing(t *testing.T) {
 }
 
 func TestTriggerDeleteFiltersOtherEvents(t *testing.T) {
-	p := newPipeline(options{triggers: Delete})
+	p := newPipeline(&Options{Triggers: Delete})
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -68,7 +68,7 @@ func TestTriggerDeleteFiltersOtherEvents(t *testing.T) {
 }
 
 func TestTriggerCreateModifyFiltersOtherEvents(t *testing.T) {
-	p := newPipeline(options{triggers: Create | Modify})
+	p := newPipeline(&Options{Triggers: Create | Modify})
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -84,5 +84,29 @@ func TestTriggerCreateModifyFiltersOtherEvents(t *testing.T) {
 		if forward := p.processEvent(tt.event); forward != tt.forward {
 			t.Errorf("%d. %v event for FSN_CREATE, want forward=%t got %t", index, tt.event, tt.forward, forward)
 		}
+	}
+}
+
+var (
+	hiddenEvent  = &fakeEvent{create: true, name: ".subl26d.tmp", description: "hidden file"}
+	visibleEvent = &fakeEvent{create: true, name: "main.go", description: "visible file"}
+)
+
+func TestHiddenFiltersHiddenEvent(t *testing.T) {
+	p := newPipeline(&Options{Hidden: false})
+
+	if forward := p.processEvent(hiddenEvent); forward != false {
+		t.Errorf("Hidden should filter %v event, want forward=%t got %t", hiddenEvent, false, forward)
+	}
+	if forward := p.processEvent(visibleEvent); forward != true {
+		t.Errorf("Hidden should not filter %v, want forward=%t got %t", visibleEvent, true, forward)
+	}
+}
+
+func TestHiddenIncludesHiddenEvent(t *testing.T) {
+	p := newPipeline(&Options{Hidden: true})
+
+	if forward := p.processEvent(hiddenEvent); forward != true {
+		t.Errorf("Include hidden should not filter %v event, want forward=%t got %t", hiddenEvent, true, forward)
 	}
 }

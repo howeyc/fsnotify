@@ -7,11 +7,13 @@ package fsnotify
 
 import "fmt"
 
-// options to configure the watch/pipeline
-type options struct {
-	triggers Triggers
+// Options for watching paths
+type Options struct {
+	Hidden   bool     // include hidden files (.DS_Store) and directories (.git, .hg)
+	Triggers Triggers // Create | Modify | Delete | Rename events (default: all)
 }
 
+// Trigger types to watch for
 type Triggers uint32
 
 const (
@@ -33,7 +35,7 @@ const (
 	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE
 )
 
-// Forward events from interal chan to external chan if passes filter
+// Forward events from internal channel to external channel if passes filter
 func (w *Watcher) forwardEvents() {
 	for ev := range w.internalEvent {
 		w.pipelinesmut.Lock()
@@ -58,20 +60,24 @@ func (w *Watcher) forwardEvents() {
 	close(w.Event)
 }
 
-// Watch a given file path
-func (w *Watcher) Watch(path string) error {
+// WatchPath watches a given file path with a particular set of options
+func (w *Watcher) WatchPath(path string, options *Options) (err error) {
 	w.pipelinesmut.Lock()
-	w.pipelines[path] = newPipeline(options{triggers: allEvents})
+	w.pipelines[path] = newPipeline(options)
 	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }
 
+// Watch a given file path
+// deprecated, please use WatchPath()
+func (w *Watcher) Watch(path string) error {
+	return w.WatchPath(path, &Options{Triggers: allEvents, Hidden: true})
+}
+
 // Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
+// deprecated, please use WatchPath()
 func (w *Watcher) WatchFlags(path string, flags Triggers) error {
-	w.pipelinesmut.Lock()
-	w.pipelines[path] = newPipeline(options{triggers: flags})
-	w.pipelinesmut.Unlock()
-	return w.watch(path)
+	return w.WatchPath(path, &Options{Triggers: flags, Hidden: true})
 }
 
 // Remove a watch on a file
