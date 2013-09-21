@@ -11,14 +11,14 @@ type notifier interface {
 	IsDelete() bool
 	IsModify() bool
 	IsRename() bool
-	fileName() string
+	fileName() string // or should this be Path()
 }
 
 /*
   A pipeline to process events
 */
 type pipeline struct {
-	fsnFlags uint32   // flags used for triggers() filter
+	triggers Triggers
 	steps    []stepFn // enabled pipeline steps to run
 }
 
@@ -29,14 +29,13 @@ type stepFn func(*pipeline, notifier) bool
 const maxSteps = 1
 
 // newPipeline creates a pipeline and enables the steps
-// this function signature is gonna change!
-func newPipeline(flags uint32) pipeline {
+func newPipeline(opt options) pipeline {
 	p := pipeline{steps: make([]stepFn, 0, maxSteps)}
 
-	// triggers step
-	if flags != FSN_ALL {
-		p.fsnFlags = flags
-		p.steps = append(p.steps, (*pipeline).triggers)
+	// triggers setup
+	if opt.triggers != allEvents && opt.triggers != 0 {
+		p.triggers = opt.triggers
+		p.steps = append(p.steps, (*pipeline).triggerStep)
 	}
 
 	return p
@@ -55,20 +54,20 @@ func (p *pipeline) processEvent(event notifier) bool {
 }
 
 // triggers discards any combination of create, modify, delete, or rename events
-func (p *pipeline) triggers(ev notifier) bool {
-	if (p.fsnFlags&FSN_CREATE == FSN_CREATE) && ev.IsCreate() {
+func (p *pipeline) triggerStep(ev notifier) bool {
+	if (p.triggers&Create == Create) && ev.IsCreate() {
 		return true
 	}
 
-	if (p.fsnFlags&FSN_MODIFY == FSN_MODIFY) && ev.IsModify() {
+	if (p.triggers&Modify == Modify) && ev.IsModify() {
 		return true
 	}
 
-	if (p.fsnFlags&FSN_DELETE == FSN_DELETE) && ev.IsDelete() {
+	if (p.triggers&Delete == Delete) && ev.IsDelete() {
 		return true
 	}
 
-	if (p.fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
+	if (p.triggers&Rename == Rename) && ev.IsRename() {
 		return true
 	}
 

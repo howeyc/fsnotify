@@ -7,7 +7,24 @@ package fsnotify
 
 import "fmt"
 
+// options to configure the watch/pipeline
+type options struct {
+	triggers Triggers
+}
+
+type Triggers uint32
+
 const (
+	Create Triggers = 1 << iota
+	Modify
+	Delete
+	Rename
+
+	allEvents Triggers = Modify | Delete | Rename | Create
+)
+
+const (
+	// deprecated, please use Triggers
 	FSN_CREATE = 1
 	FSN_MODIFY = 2
 	FSN_DELETE = 4
@@ -44,15 +61,15 @@ func (w *Watcher) forwardEvents() {
 // Watch a given file path
 func (w *Watcher) Watch(path string) error {
 	w.pipelinesmut.Lock()
-	w.pipelines[path] = newPipeline(FSN_ALL)
+	w.pipelines[path] = newPipeline(options{triggers: allEvents})
 	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }
 
 // Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
-func (w *Watcher) WatchFlags(path string, flags uint32) error {
+func (w *Watcher) WatchFlags(path string, flags Triggers) error {
 	w.pipelinesmut.Lock()
-	w.pipelines[path] = newPipeline(flags)
+	w.pipelines[path] = newPipeline(options{triggers: flags})
 	w.pipelinesmut.Unlock()
 	return w.watch(path)
 }

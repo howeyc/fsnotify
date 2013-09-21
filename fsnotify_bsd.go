@@ -390,7 +390,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 		if pipe, found := w.pipelines[dirPath]; found {
 			w.pipelines[filePath] = pipe
 		} else {
-			w.pipelines[filePath] = pipeline{fsnFlags: FSN_ALL}
+			w.pipelines[filePath] = pipeline{}
 		}
 		w.pipelinesmut.Unlock()
 
@@ -448,7 +448,7 @@ func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 			if pipe, found := w.pipelines[dirPath]; found {
 				w.pipelines[filePath] = pipe
 			} else {
-				w.pipelines[filePath] = pipeline{fsnFlags: FSN_ALL}
+				w.pipelines[filePath] = pipeline{}
 			}
 			w.pipelinesmut.Unlock()
 

@@ -268,7 +268,7 @@ func (w *Watcher) readEvents() {
 					if pipe, watchFound := w.pipelines[watchedName]; watchFound {
 						w.pipelines[event.Name] = pipe
 					} else {
-						w.pipelines[event.Name] = pipeline{fsnFlags: FSN_ALL}
+						w.pipelines[event.Name] = pipeline{}
 					}
 				}
 				w.pipelinesmut.Unlock()
