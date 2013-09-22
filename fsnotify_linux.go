@@ -62,7 +62,7 @@ const (
 type FileEvent struct {
 	mask   uint32 // Mask of events
 	cookie uint32 // Unique cookie associating related events (for rename(2))
-	Name   string // File name (optional)
+	Name   string // DEPRECATED(-): please use Path() instead
 }
 
 // IsCreate reports whether the FileEvent was triggerd by a creation
@@ -85,6 +85,7 @@ func (e *FileEvent) IsRename() bool {
 	return ((e.mask&sys_IN_MOVE_SELF) == sys_IN_MOVE_SELF || (e.mask&sys_IN_MOVED_FROM) == sys_IN_MOVED_FROM)
 }
 
+// Path is the relative path and file name of the event
 func (e *FileEvent) Path() string { return e.Name }
 
 type watch struct {

@@ -35,7 +35,7 @@ const (
 
 type FileEvent struct {
 	mask   uint32 // Mask of events
-	Name   string // File name (optional)
+	Name   string // DEPRECATED(-): please use Path() instead
 	create bool   // set by fsnotify package if found new file
 }
 
@@ -53,6 +53,7 @@ func (e *FileEvent) IsModify() bool {
 // IsRename reports whether the FileEvent was triggerd by a change name
 func (e *FileEvent) IsRename() bool { return (e.mask & sys_NOTE_RENAME) == sys_NOTE_RENAME }
 
+// Path is the relative path and file name of the event
 func (e *FileEvent) Path() string { return e.Name }
 
 type Watcher struct {
