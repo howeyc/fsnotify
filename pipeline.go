@@ -102,16 +102,11 @@ func (p *pipeline) verboseStep(ev notifier) bool {
 
 // hiddenStep discards events for hidden files (.DS_Store, .subl26d.tmp) and directories (.git, .hg, .bzr)
 func (p *pipeline) hiddenStep(ev notifier) bool {
-	forward := !isHidden(filepath.Base(ev.Path()))
+	forward := !isHidden(ev.Path())
 	if p.verbose && !forward {
 		log.Printf("hidden cancels %v", ev)
 	}
 	return forward
-}
-
-func isHidden(name string) bool {
-	// TODO: what about hidden on Windows?
-	return strings.HasPrefix(name, ".") && name != "." && name != ".."
 }
 
 // triggerStep discards any combination of create, modify, delete, or rename events

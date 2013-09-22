@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -591,4 +592,24 @@ func toFSnotifyFlags(action uint32) uint64 {
 		return sys_FS_MOVED_TO
 	}
 	return 0
+}
+
+// isHidden determines if a file/path is hidden on Windows
+// starts with a . like other OSes, or attrib +h filepath
+func isHidden(name string) bool {
+	base := filepath.Base(name)
+	if strings.HasPrefix(base, ".") && base != "." && base != ".." {
+		return true
+	}
+
+	fi, err := os.Stat(name)
+	if err != nil {
+		return false // presume not hidden?
+	}
+
+	hidden := false
+	if sys, ok := fi.Sys().(*syscall.Win32FileAttributeData); ok {
+		hidden = sys.FileAttributes&syscall.FILE_ATTRIBUTE_HIDDEN == syscall.FILE_ATTRIBUTE_HIDDEN
+	}
+	return hidden
 }
