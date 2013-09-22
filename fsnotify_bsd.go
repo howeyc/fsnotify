@@ -53,7 +53,7 @@ func (e *FileEvent) IsModify() bool {
 // IsRename reports whether the FileEvent was triggerd by a change name
 func (e *FileEvent) IsRename() bool { return (e.mask & sys_NOTE_RENAME) == sys_NOTE_RENAME }
 
-func (e *FileEvent) fileName() string { return e.Name }
+func (e *FileEvent) Path() string { return e.Name }
 
 type Watcher struct {
 	mu            sync.Mutex          // Mutex for the Watcher itself.

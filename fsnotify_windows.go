@@ -71,7 +71,7 @@ func (e *FileEvent) IsRename() bool {
 	return ((e.mask&sys_FS_MOVE) == sys_FS_MOVE || (e.mask&sys_FS_MOVE_SELF) == sys_FS_MOVE_SELF || (e.mask&sys_FS_MOVED_FROM) == sys_FS_MOVED_FROM || (e.mask&sys_FS_MOVED_TO) == sys_FS_MOVED_TO)
 }
 
-func (e *FileEvent) fileName() string { return e.Name }
+func (e *FileEvent) Path() string { return e.Name }
 
 const (
 	opAddWatch = iota

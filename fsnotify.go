@@ -42,7 +42,7 @@ const (
 func (w *Watcher) forwardEvents() {
 	for ev := range w.internalEvent {
 		w.pipelinesmut.Lock()
-		pipeline := w.pipelines[ev.fileName()]
+		pipeline := w.pipelines[ev.Path()]
 		w.pipelinesmut.Unlock()
 
 		forward := pipeline.processEvent(ev)
@@ -55,7 +55,7 @@ func (w *Watcher) forwardEvents() {
 		// what files exist for create events)
 		if ev.IsDelete() {
 			w.pipelinesmut.Lock()
-			delete(w.pipelines, ev.fileName())
+			delete(w.pipelines, ev.Path())
 			w.pipelinesmut.Unlock()
 		}
 	}
@@ -116,5 +116,5 @@ func (e *FileEvent) String() string {
 		events = events[1:]
 	}
 
-	return fmt.Sprintf("%q: %s", e.fileName(), events)
+	return fmt.Sprintf("%q: %s", e.Path(), events)
 }

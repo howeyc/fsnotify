@@ -19,7 +19,7 @@ type notifier interface {
 	IsDelete() bool
 	IsModify() bool
 	IsRename() bool
-	fileName() string // or should this be Path()
+	Path() string // relative path to the file
 }
 
 /*
@@ -102,7 +102,7 @@ func (p *pipeline) verboseStep(ev notifier) bool {
 
 // hiddenStep discards events for hidden files (.DS_Store, .subl26d.tmp) and directories (.git, .hg, .bzr)
 func (p *pipeline) hiddenStep(ev notifier) bool {
-	forward := !isHidden(ev.fileName())
+	forward := !isHidden(filepath.Base(ev.Path()))
 	if p.verbose && !forward {
 		log.Printf("hidden cancels %v", ev)
 	}
@@ -138,11 +138,14 @@ func (p *pipeline) triggerStep(ev notifier) bool {
 // patternStep discards events that don't match one of the shell file name patterns
 func (p *pipeline) patternStep(ev notifier) bool {
 	for _, pattern := range p.patterns {
-		matched, err := filepath.Match(pattern, ev.fileName())
+		matched, err := filepath.Match(pattern, filepath.Base(ev.Path()))
 		// treat ErrBadPattern as a non-match:
 		if err == nil && matched {
 			return true
 		}
+	}
+	if p.verbose {
+		log.Printf("pattern %v not matched for %v", p.patterns, ev)
 	}
 	return false
 }
@@ -154,11 +157,11 @@ func (p *pipeline) throttleStep(ev notifier) bool {
 	forward := true
 
 	p.lastEventMutex.Lock()
-	eventAt, ok := p.lastEventAt[ev.fileName()]
+	eventAt, ok := p.lastEventAt[ev.Path()]
 	if ok && time.Now().Sub(eventAt) <= throttleLatency {
 		forward = false
 	} else {
-		p.lastEventAt[ev.fileName()] = time.Now()
+		p.lastEventAt[ev.Path()] = time.Now()
 	}
 	p.lastEventMutex.Unlock()
 

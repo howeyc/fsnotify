@@ -85,7 +85,7 @@ func (e *FileEvent) IsRename() bool {
 	return ((e.mask&sys_IN_MOVE_SELF) == sys_IN_MOVE_SELF || (e.mask&sys_IN_MOVED_FROM) == sys_IN_MOVED_FROM)
 }
 
-func (e *FileEvent) fileName() string { return e.Name }
+func (e *FileEvent) Path() string { return e.Name }
 
 type watch struct {
 	wd    uint32 // Watch descriptor (as returned by the inotify_add_watch() syscall)

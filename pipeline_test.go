@@ -13,12 +13,12 @@ type fakeEvent struct {
 	description string // just for testing
 }
 
-func (e *fakeEvent) IsCreate() bool   { return e.create }
-func (e *fakeEvent) IsDelete() bool   { return e.delete }
-func (e *fakeEvent) IsModify() bool   { return e.modify }
-func (e *fakeEvent) IsRename() bool   { return e.rename }
-func (e *fakeEvent) fileName() string { return e.name }
-func (e *fakeEvent) String() string   { return e.description }
+func (e *fakeEvent) IsCreate() bool { return e.create }
+func (e *fakeEvent) IsDelete() bool { return e.delete }
+func (e *fakeEvent) IsModify() bool { return e.modify }
+func (e *fakeEvent) IsRename() bool { return e.rename }
+func (e *fakeEvent) Path() string   { return e.name }
+func (e *fakeEvent) String() string { return e.description }
 
 /*
   Triggers option
@@ -94,8 +94,9 @@ func TestTriggerCreateModifyFiltersOtherEvents(t *testing.T) {
   Hidden option
 */
 var (
-	hiddenEvent  = &fakeEvent{create: true, name: ".subl26d.tmp", description: "hidden file"}
-	visibleEvent = &fakeEvent{create: true, name: "main.go", description: "visible file"}
+	hiddenEvent         = &fakeEvent{create: true, name: ".subl26d.tmp", description: "hidden file"}
+	visibleEvent        = &fakeEvent{create: true, name: "main.go", description: "visible file"}
+	hiddenInFolderEvent = &fakeEvent{create: true, name: "folder/.DS_Store", description: "folder/.hidden file"}
 )
 
 func TestHiddenFiltersHiddenEvent(t *testing.T) {
@@ -103,6 +104,9 @@ func TestHiddenFiltersHiddenEvent(t *testing.T) {
 
 	if forward := p.processEvent(hiddenEvent); forward != false {
 		t.Errorf("Hidden should filter %v event, want forward=%t got %t", hiddenEvent, false, forward)
+	}
+	if forward := p.processEvent(hiddenInFolderEvent); forward != false {
+		t.Errorf("Hidden should filter %v event, want forward=%t got %t", hiddenInFolderEvent, false, forward)
 	}
 	if forward := p.processEvent(visibleEvent); forward != true {
 		t.Errorf("Hidden should not filter %v, want forward=%t got %t", visibleEvent, true, forward)
@@ -121,9 +125,10 @@ func TestHiddenIncludesHiddenEvent(t *testing.T) {
   Pattern
 */
 var (
-	goEvent = &fakeEvent{create: true, name: "main.go", description: "go file"}
-	cEvent  = &fakeEvent{create: true, name: "main.c", description: "c file"}
-	mdEvent = &fakeEvent{create: true, name: "README.md", description: "markdown file"}
+	goEvent        = &fakeEvent{create: true, name: "main.go", description: "go file"}
+	cEvent         = &fakeEvent{create: true, name: "main.c", description: "c file"}
+	mdEvent        = &fakeEvent{create: true, name: "README.md", description: "markdown file"}
+	goInFolerEvent = &fakeEvent{create: true, name: "folder/main.go", description: "folder/go file"}
 )
 
 func TestNoPattern(t *testing.T) {
@@ -142,6 +147,10 @@ func TestSinglePattern(t *testing.T) {
 
 	if forward := p.processEvent(cEvent); forward != false {
 		t.Errorf("*.go pattern should not forward %v", cEvent)
+	}
+
+	if forward := p.processEvent(goInFolerEvent); forward != true {
+		t.Errorf("*.go pattern should forward %v", goInFolerEvent)
 	}
 }
 
