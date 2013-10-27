@@ -229,7 +229,11 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *Watcher) watch(path string, options *Options) error {
+	w.pipelinesmut.Lock()
+	w.pipelines[path] = newPipeline(options)
+	w.pipelinesmut.Unlock()
+
 	w.ewmut.Lock()
 	w.externalWatches[path] = true
 	w.ewmut.Unlock()
@@ -433,7 +437,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 				return e
 			}
 		} else {
-			// If the user is currently waching directory
+			// If the user is currently watching directory
 			// we want to preserve the flags used
 			w.enmut.Lock()
 			currFlags, found := w.enFlags[filePath]

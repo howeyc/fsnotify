@@ -6,6 +6,7 @@ package fsnotify
 
 import (
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -36,8 +37,8 @@ type pipeline struct {
 // stepFn filters an event, returning true to forward it on
 type stepFn func(*pipeline, Event) bool
 
-// maximum steps in the pipeline
-const maxSteps = 4
+// maximum steps in the pipeline for pre-allocation
+const maxSteps = 6
 
 // newPipeline creates a pipeline and enables the steps
 func newPipeline(opt *Options) pipeline {
@@ -56,8 +57,11 @@ func newPipeline(opt *Options) pipeline {
 		p.steps = append(p.steps, (*pipeline).hiddenStep)
 	}
 
-	// TODO: Recursive option may setup autoWatchStep (consult adapter)
-	// watch created directories unless they are hidden but even if ignoring Create Trigger
+	// autowatch created directories unless they are hidden, but even if ignoring Create Trigger
+	// TODO: consult adapter capabilities
+	if opt.Recursive {
+		p.steps = append(p.steps, (*pipeline).autoWatchStep)
+	}
 
 	// triggers setup
 	if opt.Triggers != allTriggers && opt.Triggers != 0 {
@@ -106,6 +110,38 @@ func (p *pipeline) hiddenStep(event Event) bool {
 		log.Printf("hidden cancels %v", event)
 	}
 	return forward
+}
+
+// autoWatchStep propagates the watch to subdirectories as they are created
+func (p *pipeline) autoWatchStep(event Event) bool {
+	println("process recursive event")
+	if event.IsCreate() {
+		// TODO: the Event probably already knows if it's a directory?
+		fi, err := os.Stat(event.Path())
+		if err != nil {
+			// file may have disappeared before we get a Stat on it
+			// eg. stat .subl513.tmp : no such file or directory
+		} else if fi.IsDir() {
+			// Detected new directory
+
+			// TODO: watch path, point to the same options/pipeline
+
+			// watcher, err := NewWatcher()
+			// if err != nil {
+			// 	// p.watcher.Error <- err
+			// 	return true
+			// }
+
+			// err = watcher.watch(event.Path(), options)
+			// if err != nil {
+			// 	// p.watcher.Error <- err
+			// }
+		}
+	}
+	// NOTE: directory IsDelete events seem to clean up the watch itself (OS X)
+
+	// Always forward the event on
+	return true
 }
 
 // triggerStep discards any combination of create, modify, delete, or rename events

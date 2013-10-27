@@ -27,7 +27,7 @@ func ExampleNewWatcher() {
 		}
 	}()
 
-	err = watcher.Watch("/tmp/foo")
+	err = watcher.WatchPath("/tmp/foo", &fsnotify.Options{Recursive: true})
 	if err != nil {
 		log.Fatal(err)
 	}

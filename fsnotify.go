@@ -9,11 +9,12 @@ import "fmt"
 
 // Options for watching paths
 type Options struct {
-	Verbose  bool     // log events, helpful for debugging
-	Hidden   bool     // include hidden files (.DS_Store) and directories (.git, .hg)
-	Triggers Triggers // Create | Modify | Delete | Rename events (default: all)
-	Pattern  string   // comma separated list of shell file name patterns (see filepath.Match)
-	Throttle bool     // events on a file are discarded for the next second
+	Verbose   bool     // log events, helpful for debugging
+	Hidden    bool     // include hidden files (.DS_Store) and directories (.git, .hg)
+	Triggers  Triggers // Create | Modify | Delete | Rename events (default: all)
+	Pattern   string   // comma separated list of shell file name patterns (see filepath.Match)
+	Throttle  bool     // events on a file are discarded for the next second
+	Recursive bool     // watch all subdirectories of the specified path
 }
 
 // Trigger types to watch for
@@ -65,10 +66,11 @@ func (w *Watcher) forwardEvents() {
 
 // WatchPath watches a given file path with a particular set of options
 func (w *Watcher) WatchPath(path string, options *Options) (err error) {
-	w.pipelinesmut.Lock()
-	w.pipelines[path] = newPipeline(options)
-	w.pipelinesmut.Unlock()
-	return w.watch(path)
+	// TODO: check adapter capabilities
+	if options.Recursive {
+		return w.watchRecursively(path, options)
+	}
+	return w.watch(path, options)
 }
 
 // DEPRECATION(-): please use WatchPath()

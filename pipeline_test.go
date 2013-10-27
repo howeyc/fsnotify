@@ -195,3 +195,7 @@ func TestThrottleDifferentEvents(t *testing.T) {
 		t.Errorf("Throttle should forward %v event", cEvent)
 	}
 }
+
+/*
+  Autowatch
+*/
