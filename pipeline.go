@@ -1,8 +1,7 @@
-// Copyright 2012 The Go Authors. All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package fsnotify implements filesystem notification.
 package fsnotify
 
 import (
@@ -13,8 +12,8 @@ import (
 	"time"
 )
 
-//  notifier is the interface for notifications/events
-type notifier interface {
+//  Event represents a single file system event
+type Event interface {
 	IsCreate() bool
 	IsDelete() bool
 	IsModify() bool
@@ -35,7 +34,7 @@ type pipeline struct {
 }
 
 // stepFn filters an event, returning true to forward it on
-type stepFn func(*pipeline, notifier) bool
+type stepFn func(*pipeline, Event) bool
 
 // maximum steps in the pipeline
 const maxSteps = 4
@@ -61,7 +60,7 @@ func newPipeline(opt *Options) pipeline {
 	// watch created directories unless they are hidden but even if ignoring Create Trigger
 
 	// triggers setup
-	if opt.Triggers != allEvents && opt.Triggers != 0 {
+	if opt.Triggers != allTriggers && opt.Triggers != 0 {
 		p.triggers = opt.Triggers
 		p.steps = append(p.steps, (*pipeline).triggerStep)
 	}
@@ -84,7 +83,7 @@ func newPipeline(opt *Options) pipeline {
 }
 
 // processes an event and returns true if it should be forwarded
-func (p *pipeline) processEvent(event notifier) bool {
+func (p *pipeline) processEvent(event Event) bool {
 	for _, process := range p.steps {
 		if !process(p, event) {
 			// early abort, don't run other pipeline steps
@@ -95,35 +94,35 @@ func (p *pipeline) processEvent(event notifier) bool {
 }
 
 // verboseStep logs events
-func (p *pipeline) verboseStep(ev notifier) bool {
-	log.Printf("new event %v", ev)
+func (p *pipeline) verboseStep(event Event) bool {
+	log.Printf("new event %v", event)
 	return true
 }
 
 // hiddenStep discards events for hidden files (.DS_Store, .subl26d.tmp) and directories (.git, .hg, .bzr)
-func (p *pipeline) hiddenStep(ev notifier) bool {
-	forward := !isHidden(ev.Path())
+func (p *pipeline) hiddenStep(event Event) bool {
+	forward := !isHidden(event.Path())
 	if p.verbose && !forward {
-		log.Printf("hidden cancels %v", ev)
+		log.Printf("hidden cancels %v", event)
 	}
 	return forward
 }
 
 // triggerStep discards any combination of create, modify, delete, or rename events
-func (p *pipeline) triggerStep(ev notifier) bool {
-	if (p.triggers&Create == Create) && ev.IsCreate() {
+func (p *pipeline) triggerStep(event Event) bool {
+	if (p.triggers&Create == Create) && event.IsCreate() {
 		return true
 	}
 
-	if (p.triggers&Modify == Modify) && ev.IsModify() {
+	if (p.triggers&Modify == Modify) && event.IsModify() {
 		return true
 	}
 
-	if (p.triggers&Delete == Delete) && ev.IsDelete() {
+	if (p.triggers&Delete == Delete) && event.IsDelete() {
 		return true
 	}
 
-	if (p.triggers&Rename == Rename) && ev.IsRename() {
+	if (p.triggers&Rename == Rename) && event.IsRename() {
 		return true
 	}
 
@@ -131,16 +130,16 @@ func (p *pipeline) triggerStep(ev notifier) bool {
 }
 
 // patternStep discards events that don't match one of the shell file name patterns
-func (p *pipeline) patternStep(ev notifier) bool {
+func (p *pipeline) patternStep(event Event) bool {
 	for _, pattern := range p.patterns {
-		matched, err := filepath.Match(pattern, filepath.Base(ev.Path()))
+		matched, err := filepath.Match(pattern, filepath.Base(event.Path()))
 		// treat ErrBadPattern as a non-match:
 		if err == nil && matched {
 			return true
 		}
 	}
 	if p.verbose {
-		log.Printf("pattern %v not matched for %v", p.patterns, ev)
+		log.Printf("pattern %v not matched for %v", p.patterns, event)
 	}
 	return false
 }
@@ -148,20 +147,20 @@ func (p *pipeline) patternStep(ev notifier) bool {
 const throttleLatency = 1 * time.Second
 
 // throttleStep
-func (p *pipeline) throttleStep(ev notifier) bool {
+func (p *pipeline) throttleStep(event Event) bool {
 	forward := true
 
 	p.lastEventMutex.Lock()
-	eventAt, ok := p.lastEventAt[ev.Path()]
+	eventAt, ok := p.lastEventAt[event.Path()]
 	if ok && time.Now().Sub(eventAt) <= throttleLatency {
 		forward = false
 	} else {
-		p.lastEventAt[ev.Path()] = time.Now()
+		p.lastEventAt[event.Path()] = time.Now()
 	}
 	p.lastEventMutex.Unlock()
 
 	if p.verbose {
-		log.Printf("thottle forward=%t for %v", forward, ev)
+		log.Printf("thottle forward=%t for %v", forward, event)
 	}
 	return forward
 }

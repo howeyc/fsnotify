@@ -30,8 +30,8 @@ var (
 	renameEvent = &fakeEvent{rename: true, description: "Rename"}
 )
 
-func TestTriggerAllEventsFiltersNothing(t *testing.T) {
-	p := newPipeline(&Options{Triggers: allEvents})
+func TestAllTriggersFiltersNothing(t *testing.T) {
+	p := newPipeline(&Options{Triggers: allTriggers})
 
 	var tests = []struct {
 		event   *fakeEvent

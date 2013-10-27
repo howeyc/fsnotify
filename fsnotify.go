@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package fsnotify implements filesystem notification.
+// Package fsnotify implements file system notifications.
 package fsnotify
 
 import "fmt"
@@ -25,7 +25,7 @@ const (
 	Delete
 	Rename
 
-	allEvents Triggers = Modify | Delete | Rename | Create
+	allTriggers Triggers = Modify | Delete | Rename | Create
 )
 
 const (
@@ -74,7 +74,7 @@ func (w *Watcher) WatchPath(path string, options *Options) (err error) {
 // DEPRECATION(-): please use WatchPath()
 // Watch a given file path
 func (w *Watcher) Watch(path string) error {
-	return w.WatchPath(path, &Options{Triggers: allEvents, Hidden: true})
+	return w.WatchPath(path, &Options{Triggers: allTriggers, Hidden: true})
 }
 
 // DEPRECATION(-): please use WatchPath()
