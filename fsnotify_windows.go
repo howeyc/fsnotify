@@ -51,7 +51,7 @@ const (
 type FileEvent struct {
 	mask   uint32 // Mask of events
 	cookie uint32 // Unique cookie associating related events (for rename)
-	Name   string // DEPRECATED(-): please use Path() instead
+	Name   string // DEPRECATION(-): please use Path() instead
 }
 
 // IsCreate reports whether the FileEvent was triggerd by a creation

@@ -31,7 +31,7 @@ Before doing a pull request, please do your best to test your changes on multipl
 To make cross-platform testing easier, we are providing a Vagrantfile for Linux and BSD.
 
 * Install [Vagrant](http://www.vagrantup.com/) and [VirtualBox](https://www.virtualbox.org/)
-* Run `vagrant up --provision` from the project folder. You can also setup just one box with `vagrant up linux` or `vagrant up bsd` (note: the BSD box doesn't support Windows hosts at this time)
+* Run `vagrant up` from the project folder. You can also setup just one box with `vagrant up linux` or `vagrant up bsd` (note: the BSD box doesn't support Windows hosts at this time)
 * Once setup, you can run the test suite on a given OS with a single command `vagrant ssh bsd -c 'go test ./...'`.
 * When you're done, you will want to halt or destroy the vagrant boxes.
 

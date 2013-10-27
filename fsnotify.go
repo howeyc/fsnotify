@@ -29,7 +29,7 @@ const (
 )
 
 const (
-	// DEPRECATED(-): please use Triggers
+	// DEPRECATION(-): please use Triggers
 	FSN_CREATE = 1
 	FSN_MODIFY = 2
 	FSN_DELETE = 4
@@ -71,16 +71,14 @@ func (w *Watcher) WatchPath(path string, options *Options) (err error) {
 	return w.watch(path)
 }
 
+// DEPRECATION(-): please use WatchPath()
 // Watch a given file path
-//
-// DEPRECATED(-): please use WatchPath()
 func (w *Watcher) Watch(path string) error {
 	return w.WatchPath(path, &Options{Triggers: allEvents, Hidden: true})
 }
 
+// DEPRECATION(-): please use WatchPath()
 // Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
-//
-// DEPRECATED(-): please use WatchPath()
 func (w *Watcher) WatchFlags(path string, flags Triggers) error {
 	return w.WatchPath(path, &Options{Triggers: flags, Hidden: true})
 }

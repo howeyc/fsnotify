@@ -35,7 +35,7 @@ const (
 
 type FileEvent struct {
 	mask   uint32 // Mask of events
-	Name   string // DEPRECATED(-): please use Path() instead
+	Name   string // DEPRECATION(-): please use Path() instead
 	create bool   // set by fsnotify package if found new file
 }
 
