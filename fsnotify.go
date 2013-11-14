@@ -66,11 +66,13 @@ func (w *Watcher) forwardEvents() {
 
 // WatchPath watches a given file path with a particular set of options
 func (w *Watcher) WatchPath(path string, options *Options) (err error) {
+	pipeline := newPipeline(options)
+
 	// TODO: check adapter capabilities
 	if options.Recursive {
-		return w.watchRecursively(path, options)
+		return w.watchRecursively(path, pipeline)
 	}
-	return w.watch(path, options)
+	return w.watch(path, pipeline)
 }
 
 // DEPRECATION(-): please use WatchPath()

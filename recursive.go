@@ -17,14 +17,14 @@ import (
 )
 
 // Watch a given file path recursively
-func (w *Watcher) watchRecursively(path string, options *Options) error {
-	folders := subdirectories(path, options.Hidden)
+func (w *Watcher) watchRecursively(path string, pipeline pipeline) error {
+	folders := subdirectories(path, pipeline.hidden)
 	if len(folders) == 0 {
 		return errors.New("No folders to watch.")
 	}
 
 	for _, folder := range folders {
-		err := w.watch(folder, options)
+		err := w.watch(folder, pipeline)
 		if err != nil {
 			// TODO: remove watches that were already added
 			return err

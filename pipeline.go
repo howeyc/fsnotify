@@ -27,6 +27,7 @@ type Event interface {
 */
 type pipeline struct {
 	verbose        bool
+	hidden         bool
 	triggers       Triggers             // event types to forward on
 	patterns       []string             // file name patterns
 	lastEventAt    map[string]time.Time // file name -> last ran for throttling
@@ -53,6 +54,7 @@ func newPipeline(opt *Options) pipeline {
 	}
 
 	// hidden setup
+	p.hidden = opt.Hidden
 	if !opt.Hidden {
 		p.steps = append(p.steps, (*pipeline).hiddenStep)
 	}
@@ -122,19 +124,10 @@ func (p *pipeline) autoWatchStep(event Event) bool {
 			// file may have disappeared before we get a Stat on it
 			// eg. stat .subl513.tmp : no such file or directory
 		} else if fi.IsDir() {
-			// Detected new directory
-
-			// TODO: watch path, point to the same options/pipeline
-
-			// watcher, err := NewWatcher()
+			// Detected new directory, watch with same options
+			// err = p.watcher.watch(event.Path(), p)
 			// if err != nil {
-			// 	// p.watcher.Error <- err
-			// 	return true
-			// }
-
-			// err = watcher.watch(event.Path(), options)
-			// if err != nil {
-			// 	// p.watcher.Error <- err
+			//   p.watcher.Error <- err
 			// }
 		}
 	}

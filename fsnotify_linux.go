@@ -177,9 +177,9 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string, options *Options) error {
+func (w *Watcher) watch(path string, pipeline pipeline) error {
 	w.pipelinesmut.Lock()
-	w.pipelines[path] = newPipeline(options)
+	w.pipelines[path] = pipeline
 	w.pipelinesmut.Unlock()
 
 	return w.addWatch(path, sys_AGNOSTIC_EVENTS)
