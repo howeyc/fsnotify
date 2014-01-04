@@ -29,7 +29,7 @@ func testTempDir() string {
 
 func TestFsnotifyRecursive(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		// t.Skip("skipping integration test in short mode")
 	}
 
 	// Create an fsnotify watcher instance and initialize it
@@ -80,6 +80,8 @@ func TestFsnotifyRecursive(t *testing.T) {
 	if err := os.Mkdir(subDir, 0777); err != nil {
 		t.Fatalf("failed to create subdir in test directory: %s", err)
 	}
+
+	time.Sleep(50 * time.Millisecond) // give system time to detect folder before creating file
 
 	// Create a file in the subDir (subDir should be autoWatched)
 	testFile := filepath.Join(subDir, "TestFsnotifyRecursive.testfile")

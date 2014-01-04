@@ -13,6 +13,7 @@ type fakeEvent struct {
 	delete      bool
 	modify      bool
 	rename      bool
+	dir         bool
 	name        string
 	description string // just for testing
 }
@@ -21,6 +22,7 @@ func (e *fakeEvent) IsCreate() bool { return e.create }
 func (e *fakeEvent) IsDelete() bool { return e.delete }
 func (e *fakeEvent) IsModify() bool { return e.modify }
 func (e *fakeEvent) IsRename() bool { return e.rename }
+func (e *fakeEvent) IsDir() bool    { return e.dir }
 func (e *fakeEvent) Path() string   { return e.name }
 func (e *fakeEvent) String() string { return e.description }
 
@@ -204,7 +206,7 @@ func TestThrottleDifferentEvents(t *testing.T) {
   AutoWatch
 */
 var (
-	folderEvent = &fakeEvent{create: true, name: "folder/", description: "folder"}
+	folderEvent = &fakeEvent{create: true, name: "folder/", description: "folder", dir: true}
 )
 
 type fakeWatch int

@@ -6,7 +6,6 @@ package fsnotify
 
 import (
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ type Event interface {
 	IsModify() bool
 	IsRename() bool
 	Path() string // relative path to the file
+	IsDir() bool
 }
 
 // watcher is an internal interface needed for autoWatchStep
@@ -122,19 +122,13 @@ func (p *pipeline) hiddenStep(event Event) bool {
 
 // autoWatchStep propagates the watch to subdirectories as they are created
 func (p *pipeline) autoWatchStep(event Event) bool {
-	println("process recursive event")
-	if event.IsCreate() {
-		// TODO: the Event probably already knows if it's a directory?
-		fi, err := os.Stat(event.Path())
+	// println("process recursive event")
+	if event.IsCreate() && event.IsDir() {
+		// println("process recursive event (create dir)", event.Path())
+		// Detected new directory, watch with same options
+		err := p.watcher.watch(event.Path(), *p)
 		if err != nil {
-			// file may have disappeared before we get a Stat on it
-			// eg. stat .subl513.tmp : no such file or directory
-		} else if fi.IsDir() {
-			// Detected new directory, watch with same options
-			// err = p.watcher.watch(event.Path(), *p)
-			// if err != nil {
-			//   p.watcher.Error <- err
-			// }
+			// p.watcher.Error <- err
 		}
 	}
 	// NOTE: directory IsDelete events seem to clean up the watch itself (OS X)

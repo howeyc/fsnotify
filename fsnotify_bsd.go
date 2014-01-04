@@ -34,9 +34,10 @@ const (
 )
 
 type FileEvent struct {
-	mask   uint32 // Mask of events
-	Name   string // DEPRECATION(-): please use Path() instead
-	create bool   // set by fsnotify package if found new file
+	mask     uint32 // Mask of events
+	Name     string // DEPRECATION(-): please use Path() instead
+	create   bool   // set by fsnotify package if found new file
+	fileInfo os.FileInfo
 }
 
 // IsCreate reports whether the FileEvent was triggerd by a creation
@@ -52,6 +53,9 @@ func (e *FileEvent) IsModify() bool {
 
 // IsRename reports whether the FileEvent was triggerd by a change name
 func (e *FileEvent) IsRename() bool { return (e.mask & sys_NOTE_RENAME) == sys_NOTE_RENAME }
+
+// IsDir reports whether the FileEvent was triggerd by a directory
+func (e *FileEvent) IsDir() bool { return e.fileInfo != nil && e.fileInfo.IsDir() }
 
 // Path is the relative path and file name of the event
 func (e *FileEvent) Path() string { return e.Name }
@@ -347,15 +351,17 @@ func (w *Watcher) readEvents() {
 			}
 		}
 
-		// Flush the events we recieved to the events channel
+		// Flush the events we received to the events channel
 		for len(events) > 0 {
 			fileEvent := new(FileEvent)
 			watchEvent := &events[0]
 			fileEvent.mask = uint32(watchEvent.Fflags)
 			w.pmut.Lock()
 			fileEvent.Name = w.paths[int(watchEvent.Ident)]
-			fileInfo := w.finfo[int(watchEvent.Ident)]
+			fileEvent.fileInfo = w.finfo[int(watchEvent.Ident)]
 			w.pmut.Unlock()
+
+			fileInfo := fileEvent.fileInfo
 			if fileInfo != nil && fileInfo.IsDir() && !fileEvent.IsDelete() {
 				// Double check to make sure the directory exist. This can happen when
 				// we do a rm -fr on a recursively watched folders and we receive a
@@ -463,7 +469,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 
 // sendDirectoryEvents searches the directory for newly created files
 // and sends them over the event channel. This functionality is to have
-// the BSD version of fsnotify mach linux fsnotify which provides a
+// the BSD version of fsnotify match linux fsnotify which provides a
 // create event for files created in a watched directory.
 func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 	// Get all files
@@ -492,6 +498,7 @@ func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 			fileEvent := new(FileEvent)
 			fileEvent.Name = filePath
 			fileEvent.create = true
+			fileEvent.fileInfo = fileInfo
 			w.internalEvent <- fileEvent
 		}
 		w.femut.Lock()
