@@ -34,9 +34,10 @@ const (
 )
 
 type FileEvent struct {
-	mask   uint32 // Mask of events
-	Name   string // File name (optional)
-	create bool   // set by fsnotify package if found new file
+	mask     uint32 // Mask of events
+	Name     string // DEPRECATION(-): please use Path() instead
+	create   bool   // set by fsnotify package if found new file
+	fileInfo os.FileInfo
 }
 
 // IsCreate reports whether the FileEvent was triggerd by a creation
@@ -53,22 +54,28 @@ func (e *FileEvent) IsModify() bool {
 // IsRename reports whether the FileEvent was triggerd by a change name
 func (e *FileEvent) IsRename() bool { return (e.mask & sys_NOTE_RENAME) == sys_NOTE_RENAME }
 
+// IsDir reports whether the FileEvent was triggerd by a directory
+func (e *FileEvent) IsDir() bool { return e.fileInfo != nil && e.fileInfo.IsDir() }
+
+// Path is the relative path and file name of the event
+func (e *FileEvent) Path() string { return e.Name }
+
 type Watcher struct {
 	mu              sync.Mutex          // Mutex for the Watcher itself.
 	kq              int                 // File descriptor (as returned by the kqueue() syscall)
-	watches         map[string]int      // Map of watched file diescriptors (key: path)
+	watches         map[string]int      // Map of watched file descriptors (key: path)
 	wmut            sync.Mutex          // Protects access to watches.
-	fsnFlags        map[string]uint32   // Map of watched files to flags used for filter
-	fsnmut          sync.Mutex          // Protects access to fsnFlags.
+	pipelines       map[string]pipeline // Map of watched files to pipelines used for filtering
+	pipelinesmut    sync.Mutex          // Protects access to pipelines.
 	enFlags         map[string]uint32   // Map of watched files to evfilt note flags used in kqueue
 	enmut           sync.Mutex          // Protects access to enFlags.
 	paths           map[int]string      // Map of watched paths (key: watch descriptor)
 	finfo           map[int]os.FileInfo // Map of file information (isDir, isReg; key: watch descriptor)
 	pmut            sync.Mutex          // Protects access to paths and finfo.
 	fileExists      map[string]bool     // Keep track of if we know this file exists (to stop duplicate create events)
-	femut           sync.Mutex          // Proctects access to fileExists.
+	femut           sync.Mutex          // Protects access to fileExists.
 	externalWatches map[string]bool     // Map of watches added by user of the library.
-	ewmut           sync.Mutex          // Protects access to internalWatches.
+	ewmut           sync.Mutex          // Protects access to externalWatches.
 	Error           chan error          // Errors are sent on this channel
 	internalEvent   chan *FileEvent     // Events are queued on this channel
 	Event           chan *FileEvent     // Events are returned on this channel
@@ -87,7 +94,7 @@ func NewWatcher() (*Watcher, error) {
 	w := &Watcher{
 		kq:              fd,
 		watches:         make(map[string]int),
-		fsnFlags:        make(map[string]uint32),
+		pipelines:       make(map[string]pipeline),
 		enFlags:         make(map[string]uint32),
 		paths:           make(map[int]string),
 		finfo:           make(map[int]os.FileInfo),
@@ -100,7 +107,7 @@ func NewWatcher() (*Watcher, error) {
 	}
 
 	go w.readEvents()
-	go w.purgeEvents()
+	go w.forwardEvents()
 	return w, nil
 }
 
@@ -226,7 +233,11 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *Watcher) watch(path string, pipeline pipeline) error {
+	w.pipelinesmut.Lock()
+	w.pipelines[path] = pipeline
+	w.pipelinesmut.Unlock()
+
 	w.ewmut.Lock()
 	w.externalWatches[path] = true
 	w.ewmut.Unlock()
@@ -280,7 +291,7 @@ func (w *Watcher) removeWatch(path string) error {
 		}
 		w.pmut.Unlock()
 		for idx := 0; idx < len(pathsToRemove); idx++ {
-			// Since these are internal, not much sense in propogating error
+			// Since these are internal, not much sense in propagating error
 			// to the user, as that will just confuse them with an error about
 			// a path they did not explicitly watch themselves.
 			w.removeWatch(pathsToRemove[idx])
@@ -340,15 +351,17 @@ func (w *Watcher) readEvents() {
 			}
 		}
 
-		// Flush the events we recieved to the events channel
+		// Flush the events we received to the events channel
 		for len(events) > 0 {
 			fileEvent := new(FileEvent)
 			watchEvent := &events[0]
 			fileEvent.mask = uint32(watchEvent.Fflags)
 			w.pmut.Lock()
 			fileEvent.Name = w.paths[int(watchEvent.Ident)]
-			fileInfo := w.finfo[int(watchEvent.Ident)]
+			fileEvent.fileInfo = w.finfo[int(watchEvent.Ident)]
 			w.pmut.Unlock()
+
+			fileInfo := fileEvent.fileInfo
 			if fileInfo != nil && fileInfo.IsDir() && !fileEvent.IsDelete() {
 				// Double check to make sure the directory exist. This can happen when
 				// we do a rm -fr on a recursively watched folders and we receive a
@@ -414,14 +427,14 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 	for _, fileInfo := range files {
 		filePath := filepath.Join(dirPath, fileInfo.Name())
 
-		// Inherit fsnFlags from parent directory
-		w.fsnmut.Lock()
-		if flags, found := w.fsnFlags[dirPath]; found {
-			w.fsnFlags[filePath] = flags
+		// Inherit pipeline from parent directory
+		w.pipelinesmut.Lock()
+		if pipe, found := w.pipelines[dirPath]; found {
+			w.pipelines[filePath] = pipe
 		} else {
-			w.fsnFlags[filePath] = FSN_ALL
+			w.pipelines[filePath] = pipeline{}
 		}
-		w.fsnmut.Unlock()
+		w.pipelinesmut.Unlock()
 
 		if fileInfo.IsDir() == false {
 			// Watch file to mimic linux fsnotify
@@ -430,7 +443,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 				return e
 			}
 		} else {
-			// If the user is currently waching directory
+			// If the user is currently watching directory
 			// we want to preserve the flags used
 			w.enmut.Lock()
 			currFlags, found := w.enFlags[filePath]
@@ -456,7 +469,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 
 // sendDirectoryEvents searches the directory for newly created files
 // and sends them over the event channel. This functionality is to have
-// the BSD version of fsnotify mach linux fsnotify which provides a
+// the BSD version of fsnotify match linux fsnotify which provides a
 // create event for files created in a watched directory.
 func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 	// Get all files
@@ -472,19 +485,20 @@ func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 		_, doesExist := w.fileExists[filePath]
 		w.femut.Unlock()
 		if !doesExist {
-			// Inherit fsnFlags from parent directory
-			w.fsnmut.Lock()
-			if flags, found := w.fsnFlags[dirPath]; found {
-				w.fsnFlags[filePath] = flags
+			// Inherit pipeline from parent directory
+			w.pipelinesmut.Lock()
+			if pipe, found := w.pipelines[dirPath]; found {
+				w.pipelines[filePath] = pipe
 			} else {
-				w.fsnFlags[filePath] = FSN_ALL
+				w.pipelines[filePath] = pipeline{}
 			}
-			w.fsnmut.Unlock()
+			w.pipelinesmut.Unlock()
 
 			// Send create event
 			fileEvent := new(FileEvent)
 			fileEvent.Name = filePath
 			fileEvent.create = true
+			fileEvent.fileInfo = fileInfo
 			w.internalEvent <- fileEvent
 		}
 		w.femut.Lock()

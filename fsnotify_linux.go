@@ -62,7 +62,7 @@ const (
 type FileEvent struct {
 	mask   uint32 // Mask of events
 	cookie uint32 // Unique cookie associating related events (for rename(2))
-	Name   string // File name (optional)
+	Name   string // DEPRECATION(-): please use Path() instead
 }
 
 // IsCreate reports whether the FileEvent was triggerd by a creation
@@ -85,23 +85,26 @@ func (e *FileEvent) IsRename() bool {
 	return ((e.mask&sys_IN_MOVE_SELF) == sys_IN_MOVE_SELF || (e.mask&sys_IN_MOVED_FROM) == sys_IN_MOVED_FROM)
 }
 
+// Path is the relative path and file name of the event
+func (e *FileEvent) Path() string { return e.Name }
+
 type watch struct {
 	wd    uint32 // Watch descriptor (as returned by the inotify_add_watch() syscall)
 	flags uint32 // inotify flags of this watch (see inotify(7) for the list of valid flags)
 }
 
 type Watcher struct {
-	mu            sync.Mutex        // Map access
-	fd            int               // File descriptor (as returned by the inotify_init() syscall)
-	watches       map[string]*watch // Map of inotify watches (key: path)
-	fsnFlags      map[string]uint32 // Map of watched files to flags used for filter
-	fsnmut        sync.Mutex        // Protects access to fsnFlags.
-	paths         map[int]string    // Map of watched paths (key: watch descriptor)
-	Error         chan error        // Errors are sent on this channel
-	internalEvent chan *FileEvent   // Events are queued on this channel
-	Event         chan *FileEvent   // Events are returned on this channel
-	done          chan bool         // Channel for sending a "quit message" to the reader goroutine
-	isClosed      bool              // Set to true when Close() is first called
+	mu            sync.Mutex          // Map access
+	fd            int                 // File descriptor (as returned by the inotify_init() syscall)
+	watches       map[string]*watch   // Map of inotify watches (key: path)
+	pipelines     map[string]pipeline // Map of watched files to pipelines used for filtering
+	pipelinesmut  sync.Mutex          // Protects access to pipelines.
+	paths         map[int]string      // Map of watched paths (key: watch descriptor)
+	Error         chan error          // Errors are sent on this channel
+	internalEvent chan *FileEvent     // Events are queued on this channel
+	Event         chan *FileEvent     // Events are returned on this channel
+	done          chan bool           // Channel for sending a "quit message" to the reader goroutine
+	isClosed      bool                // Set to true when Close() is first called
 }
 
 // NewWatcher creates and returns a new inotify instance using inotify_init(2)
@@ -113,7 +116,7 @@ func NewWatcher() (*Watcher, error) {
 	w := &Watcher{
 		fd:            fd,
 		watches:       make(map[string]*watch),
-		fsnFlags:      make(map[string]uint32),
+		pipelines:     make(map[string]pipeline),
 		paths:         make(map[int]string),
 		internalEvent: make(chan *FileEvent),
 		Event:         make(chan *FileEvent),
@@ -122,7 +125,7 @@ func NewWatcher() (*Watcher, error) {
 	}
 
 	go w.readEvents()
-	go w.purgeEvents()
+	go w.forwardEvents()
 	return w, nil
 }
 
@@ -174,7 +177,11 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *Watcher) watch(path string, pipeline pipeline) error {
+	w.pipelinesmut.Lock()
+	w.pipelines[path] = pipeline
+	w.pipelinesmut.Unlock()
+
 	return w.addWatch(path, sys_AGNOSTIC_EVENTS)
 }
 
@@ -261,15 +268,15 @@ func (w *Watcher) readEvents() {
 			// Send the events that are not ignored on the events channel
 			if !event.ignoreLinux() {
 				// Setup FSNotify flags (inherit from directory watch)
-				w.fsnmut.Lock()
-				if _, fsnFound := w.fsnFlags[event.Name]; !fsnFound {
-					if fsnFlags, watchFound := w.fsnFlags[watchedName]; watchFound {
-						w.fsnFlags[event.Name] = fsnFlags
+				w.pipelinesmut.Lock()
+				if _, fsnFound := w.pipelines[event.Name]; !fsnFound {
+					if pipe, watchFound := w.pipelines[watchedName]; watchFound {
+						w.pipelines[event.Name] = pipe
 					} else {
-						w.fsnFlags[event.Name] = FSN_ALL
+						w.pipelines[event.Name] = pipeline{}
 					}
 				}
-				w.fsnmut.Unlock()
+				w.pipelinesmut.Unlock()
 
 				w.internalEvent <- event
 			}

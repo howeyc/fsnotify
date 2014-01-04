@@ -10,8 +10,8 @@ INSTALL = {
 }
 
 GO_ARCHIVES = {
-  "precise32" => "go1.1.2.linux-386.tar.gz",
-  "freebsd32" => "go1.1.2.freebsd-386.tar.gz"
+  "precise64" => "go1.1.2.linux-amd64.tar.gz",
+  "freebsd64" => "go1.1.2.freebsd-amd64.tar.gz"
 }
 
 # shell script to bootstrap Go
@@ -58,10 +58,10 @@ end
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.define "linux" do |linux|
-    linux.vm.box = "precise32"
-    linux.vm.box_url = "http://files.vagrantup.com/precise32.box"
+    linux.vm.box = "precise64"
+    linux.vm.box_url = "http://files.vagrantup.com/precise64.box"
     linux.vm.synced_folder src_path, "/home/vagrant/go"
-    linux.vm.provision :shell, :inline => bootstrap("linux", "precise32")
+    linux.vm.provision :shell, :inline => bootstrap("linux", "precise64")
   end
 
   # Pete Cheslock's BSD box
@@ -71,12 +71,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # * and requires a private host-only network
   # * and will prompt for the administrator password of the host
   config.vm.define "bsd" do |bsd|
-    bsd.vm.box = "freebsd32"
-    bsd.vm.box_url = "http://dyn-vm.s3.amazonaws.com/vagrant/dyn-virtualbox-freebsd-9.1-i386.box"
+    bsd.vm.box = "freebsd64"
+    bsd.vm.box_url = "http://dyn-vm.s3.amazonaws.com/vagrant/dyn-virtualbox-freebsd-9.1.box"
     bsd.vm.synced_folder ".", "/vagrant", :disabled => true
     bsd.vm.synced_folder src_path, "/home/vagrant/go", :nfs => true
     bsd.vm.network :private_network, :ip => '10.1.10.5'
-    bsd.vm.provision :shell, :inline => bootstrap("bsd", "freebsd32")
+    bsd.vm.provision :shell, :inline => bootstrap("bsd", "freebsd64")
   end
 
 end

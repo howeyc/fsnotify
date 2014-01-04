@@ -2,12 +2,35 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package fsnotify implements filesystem notification.
+// Package fsnotify implements file system notifications.
 package fsnotify
 
 import "fmt"
 
+// Options for watching paths
+type Options struct {
+	Verbose   bool     // log events, helpful for debugging
+	Hidden    bool     // include hidden files (.DS_Store) and directories (.git, .hg)
+	Triggers  Triggers // Create | Modify | Delete | Rename events (default: all)
+	Pattern   string   // comma separated list of shell file name patterns (see filepath.Match)
+	Throttle  bool     // events on a file are discarded for the next second
+	Recursive bool     // watch all subdirectories of the specified path
+}
+
+// Trigger types to watch for
+type Triggers uint32
+
 const (
+	Create Triggers = 1 << iota
+	Modify
+	Delete
+	Rename
+
+	allTriggers Triggers = Modify | Delete | Rename | Create
+)
+
+const (
+	// DEPRECATION(-): please use Triggers
 	FSN_CREATE = 1
 	FSN_MODIFY = 2
 	FSN_DELETE = 4
@@ -16,31 +39,15 @@ const (
 	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE
 )
 
-// Purge events from interal chan to external chan if passes filter
-func (w *Watcher) purgeEvents() {
+// Forward events from internal channel to external channel if passes filter
+func (w *Watcher) forwardEvents() {
 	for ev := range w.internalEvent {
-		sendEvent := false
-		w.fsnmut.Lock()
-		fsnFlags := w.fsnFlags[ev.Name]
-		w.fsnmut.Unlock()
+		w.pipelinesmut.Lock()
+		pipeline := w.pipelines[ev.Path()]
+		w.pipelinesmut.Unlock()
 
-		if (fsnFlags&FSN_CREATE == FSN_CREATE) && ev.IsCreate() {
-			sendEvent = true
-		}
-
-		if (fsnFlags&FSN_MODIFY == FSN_MODIFY) && ev.IsModify() {
-			sendEvent = true
-		}
-
-		if (fsnFlags&FSN_DELETE == FSN_DELETE) && ev.IsDelete() {
-			sendEvent = true
-		}
-
-		if (fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
-			sendEvent = true
-		}
-
-		if sendEvent {
+		forward := pipeline.processEvent(ev)
+		if forward {
 			w.Event <- ev
 		}
 
@@ -48,36 +55,43 @@ func (w *Watcher) purgeEvents() {
 		// BSD must keep watch for internal use (watches DELETEs to keep track
 		// what files exist for create events)
 		if ev.IsDelete() {
-			w.fsnmut.Lock()
-			delete(w.fsnFlags, ev.Name)
-			w.fsnmut.Unlock()
+			w.pipelinesmut.Lock()
+			delete(w.pipelines, ev.Path())
+			w.pipelinesmut.Unlock()
 		}
 	}
 
 	close(w.Event)
 }
 
-// Watch a given file path
-func (w *Watcher) Watch(path string) error {
-	w.fsnmut.Lock()
-	w.fsnFlags[path] = FSN_ALL
-	w.fsnmut.Unlock()
-	return w.watch(path)
+// WatchPath watches a given file path with a particular set of options
+func (w *Watcher) WatchPath(path string, options *Options) (err error) {
+	pipeline := newPipeline(options, w)
+
+	// TODO: check adapter capabilities
+	if options.Recursive {
+		return w.watchRecursively(path, pipeline)
+	}
+	return w.watch(path, pipeline)
 }
 
+// DEPRECATION(-): please use WatchPath()
+// Watch a given file path
+func (w *Watcher) Watch(path string) error {
+	return w.WatchPath(path, &Options{Triggers: allTriggers, Hidden: true})
+}
+
+// DEPRECATION(-): please use WatchPath()
 // Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
-func (w *Watcher) WatchFlags(path string, flags uint32) error {
-	w.fsnmut.Lock()
-	w.fsnFlags[path] = flags
-	w.fsnmut.Unlock()
-	return w.watch(path)
+func (w *Watcher) WatchFlags(path string, flags Triggers) error {
+	return w.WatchPath(path, &Options{Triggers: flags, Hidden: true})
 }
 
 // Remove a watch on a file
 func (w *Watcher) RemoveWatch(path string) error {
-	w.fsnmut.Lock()
-	delete(w.fsnFlags, path)
-	w.fsnmut.Unlock()
+	w.pipelinesmut.Lock()
+	delete(w.pipelines, path)
+	w.pipelinesmut.Unlock()
 	return w.removeWatch(path)
 }
 
@@ -106,5 +120,5 @@ func (e *FileEvent) String() string {
 		events = events[1:]
 	}
 
-	return fmt.Sprintf("%q: %s", e.Name, events)
+	return fmt.Sprintf("%q: %s", e.Path(), events)
 }

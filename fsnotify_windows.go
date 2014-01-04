@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -50,7 +51,7 @@ const (
 type FileEvent struct {
 	mask   uint32 // Mask of events
 	cookie uint32 // Unique cookie associating related events (for rename)
-	Name   string // File name (optional)
+	Name   string // DEPRECATION(-): please use Path() instead
 }
 
 // IsCreate reports whether the FileEvent was triggerd by a creation
@@ -70,6 +71,9 @@ func (e *FileEvent) IsModify() bool {
 func (e *FileEvent) IsRename() bool {
 	return ((e.mask&sys_FS_MOVE) == sys_FS_MOVE || (e.mask&sys_FS_MOVE_SELF) == sys_FS_MOVE_SELF || (e.mask&sys_FS_MOVED_FROM) == sys_FS_MOVED_FROM || (e.mask&sys_FS_MOVED_TO) == sys_FS_MOVED_TO)
 }
+
+// Path is the relative path and file name of the event
+func (e *FileEvent) Path() string { return e.Name }
 
 const (
 	opAddWatch = iota
@@ -109,16 +113,16 @@ type watchMap map[uint32]indexMap
 // A Watcher waits for and receives event notifications
 // for a specific set of files and directories.
 type Watcher struct {
-	mu            sync.Mutex        // Map access
-	port          syscall.Handle    // Handle to completion port
-	watches       watchMap          // Map of watches (key: i-number)
-	fsnFlags      map[string]uint32 // Map of watched files to flags used for filter
-	fsnmut        sync.Mutex        // Protects access to fsnFlags.
-	input         chan *input       // Inputs to the reader are sent on this channel
-	internalEvent chan *FileEvent   // Events are queued on this channel
-	Event         chan *FileEvent   // Events are returned on this channel
-	Error         chan error        // Errors are sent on this channel
-	isClosed      bool              // Set to true when Close() is first called
+	mu            sync.Mutex          // Map access
+	port          syscall.Handle      // Handle to completion port
+	watches       watchMap            // Map of watches (key: i-number)
+	pipelines     map[string]pipeline // Map of watched files to pipelines used for filtering
+	pipelinesmut  sync.Mutex          // Protects access to pipelines.
+	input         chan *input         // Inputs to the reader are sent on this channel
+	internalEvent chan *FileEvent     // Events are queued on this channel
+	Event         chan *FileEvent     // Events are returned on this channel
+	Error         chan error          // Errors are sent on this channel
+	isClosed      bool                // Set to true when Close() is first called
 	quit          chan chan<- error
 	cookie        uint32
 }
@@ -132,7 +136,7 @@ func NewWatcher() (*Watcher, error) {
 	w := &Watcher{
 		port:          port,
 		watches:       make(watchMap),
-		fsnFlags:      make(map[string]uint32),
+		pipelines:     make(map[string]pipeline),
 		input:         make(chan *input, 1),
 		Event:         make(chan *FileEvent, 50),
 		internalEvent: make(chan *FileEvent),
@@ -140,7 +144,7 @@ func NewWatcher() (*Watcher, error) {
 		quit:          make(chan chan<- error, 1),
 	}
 	go w.readEvents()
-	go w.purgeEvents()
+	go w.forwardEvents()
 	return w, nil
 }
 
@@ -181,7 +185,11 @@ func (w *Watcher) AddWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *Watcher) watch(path string, pipeline pipeline) error {
+	w.pipelinesmut.Lock()
+	w.pipelines[path] = pipeline
+	w.pipelinesmut.Unlock()
+
 	return w.AddWatch(path, sys_FS_ALL_EVENTS)
 }
 
@@ -589,4 +597,24 @@ func toFSnotifyFlags(action uint32) uint64 {
 		return sys_FS_MOVED_TO
 	}
 	return 0
+}
+
+// isHidden determines if a file/path is hidden on Windows
+// starts with a . like other OSes, or attrib +h filepath
+func isHidden(name string) bool {
+	base := filepath.Base(name)
+	if strings.HasPrefix(base, ".") && base != "." && base != ".." {
+		return true
+	}
+
+	fi, err := os.Stat(name)
+	if err != nil {
+		return false // presume not hidden?
+	}
+
+	hidden := false
+	if sys, ok := fi.Sys().(*syscall.Win32FileAttributeData); ok {
+		hidden = sys.FileAttributes&syscall.FILE_ATTRIBUTE_HIDDEN == syscall.FILE_ATTRIBUTE_HIDDEN
+	}
+	return hidden
 }

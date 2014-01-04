@@ -46,6 +46,10 @@ func (c *counter) value() int32 {
 }
 
 func TestFsnotifyMultipleOperations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -179,6 +183,10 @@ func TestFsnotifyMultipleOperations(t *testing.T) {
 }
 
 func TestFsnotifyMultipleCreates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -316,6 +324,10 @@ func TestFsnotifyMultipleCreates(t *testing.T) {
 }
 
 func TestFsnotifyDirOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -430,6 +442,10 @@ func TestFsnotifyDirOnly(t *testing.T) {
 }
 
 func TestFsnotifyDeleteWatchedDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -503,6 +519,10 @@ func TestFsnotifyDeleteWatchedDir(t *testing.T) {
 }
 
 func TestFsnotifySubDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -608,6 +628,10 @@ func TestFsnotifySubDir(t *testing.T) {
 }
 
 func TestFsnotifyRename(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -702,6 +726,10 @@ func TestFsnotifyRename(t *testing.T) {
 }
 
 func TestFsnotifyRenameToCreate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	// Create an fsnotify watcher instance and initialize it
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -794,6 +822,10 @@ func TestFsnotifyRenameToCreate(t *testing.T) {
 }
 
 func TestFsnotifyRenameToOverwrite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	switch runtime.GOOS {
 	case "plan9", "windows":
 		t.Skipf("skipping test on %q (os.Rename over existing file does not create event).", runtime.GOOS)
@@ -955,6 +987,10 @@ func TestRemovalOfWatch(t *testing.T) {
 }
 
 func TestFsnotifyAttrib(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	if runtime.GOOS == "windows" {
 		t.Skip("attributes don't work on Windows.")
 	}
@@ -1045,6 +1081,10 @@ func TestFsnotifyAttrib(t *testing.T) {
 }
 
 func TestFsnotifyClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	watcher, _ := NewWatcher()
 	watcher.Close()
 
