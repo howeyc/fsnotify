@@ -59,7 +59,7 @@ func (e *FileEvent) Path() string { return e.Name }
 type Watcher struct {
 	mu              sync.Mutex          // Mutex for the Watcher itself.
 	kq              int                 // File descriptor (as returned by the kqueue() syscall)
-	watches         map[string]int      // Map of watched file diescriptors (key: path)
+	watches         map[string]int      // Map of watched file descriptors (key: path)
 	wmut            sync.Mutex          // Protects access to watches.
 	pipelines       map[string]pipeline // Map of watched files to pipelines used for filtering
 	pipelinesmut    sync.Mutex          // Protects access to pipelines.
@@ -69,7 +69,7 @@ type Watcher struct {
 	finfo           map[int]os.FileInfo // Map of file information (isDir, isReg; key: watch descriptor)
 	pmut            sync.Mutex          // Protects access to paths and finfo.
 	fileExists      map[string]bool     // Keep track of if we know this file exists (to stop duplicate create events)
-	femut           sync.Mutex          // Proctects access to fileExists.
+	femut           sync.Mutex          // Protects access to fileExists.
 	externalWatches map[string]bool     // Map of watches added by user of the library.
 	ewmut           sync.Mutex          // Protects access to externalWatches.
 	Error           chan error          // Errors are sent on this channel
