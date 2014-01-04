@@ -35,7 +35,7 @@ var (
 )
 
 func TestAllTriggersFiltersNothing(t *testing.T) {
-	p := newPipeline(&Options{Triggers: allTriggers})
+	p := newPipeline(&Options{Triggers: allTriggers}, nil)
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -55,7 +55,7 @@ func TestAllTriggersFiltersNothing(t *testing.T) {
 }
 
 func TestTriggerDeleteFiltersOtherEvents(t *testing.T) {
-	p := newPipeline(&Options{Triggers: Delete})
+	p := newPipeline(&Options{Triggers: Delete}, nil)
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -75,7 +75,7 @@ func TestTriggerDeleteFiltersOtherEvents(t *testing.T) {
 }
 
 func TestTriggerCreateModifyFiltersOtherEvents(t *testing.T) {
-	p := newPipeline(&Options{Triggers: Create | Modify})
+	p := newPipeline(&Options{Triggers: Create | Modify}, nil)
 
 	var tests = []struct {
 		event   *fakeEvent
@@ -104,7 +104,7 @@ var (
 )
 
 func TestHiddenFiltersHiddenEvent(t *testing.T) {
-	p := newPipeline(&Options{Hidden: false})
+	p := newPipeline(&Options{Hidden: false}, nil)
 
 	if forward := p.processEvent(hiddenEvent); forward != false {
 		t.Errorf("Hidden should filter %v event, want forward=%t got %t", hiddenEvent, false, forward)
@@ -118,7 +118,7 @@ func TestHiddenFiltersHiddenEvent(t *testing.T) {
 }
 
 func TestHiddenIncludesHiddenEvent(t *testing.T) {
-	p := newPipeline(&Options{Hidden: true})
+	p := newPipeline(&Options{Hidden: true}, nil)
 
 	if forward := p.processEvent(hiddenEvent); forward != true {
 		t.Errorf("Include hidden should not filter %v event, want forward=%t got %t", hiddenEvent, true, forward)
@@ -129,21 +129,21 @@ func TestHiddenIncludesHiddenEvent(t *testing.T) {
   Pattern
 */
 var (
-	goEvent        = &fakeEvent{create: true, name: "main.go", description: "go file"}
-	cEvent         = &fakeEvent{create: true, name: "main.c", description: "c file"}
-	mdEvent        = &fakeEvent{create: true, name: "README.md", description: "markdown file"}
-	goInFolerEvent = &fakeEvent{create: true, name: "folder/main.go", description: "folder/go file"}
+	goEvent         = &fakeEvent{create: true, name: "main.go", description: "go file"}
+	cEvent          = &fakeEvent{create: true, name: "main.c", description: "c file"}
+	mdEvent         = &fakeEvent{create: true, name: "README.md", description: "markdown file"}
+	goInFolderEvent = &fakeEvent{create: true, name: "folder/main.go", description: "folder/go file"}
 )
 
 func TestNoPattern(t *testing.T) {
-	p := newPipeline(&Options{Pattern: ""})
+	p := newPipeline(&Options{Pattern: ""}, nil)
 	if p.processEvent(cEvent) != true {
 		t.Errorf("No pattern should forward %v", cEvent)
 	}
 }
 
 func TestSinglePattern(t *testing.T) {
-	p := newPipeline(&Options{Pattern: "*.go"})
+	p := newPipeline(&Options{Pattern: "*.go"}, nil)
 
 	if forward := p.processEvent(goEvent); forward != true {
 		t.Errorf("*.go pattern should forward %v", goEvent)
@@ -153,13 +153,13 @@ func TestSinglePattern(t *testing.T) {
 		t.Errorf("*.go pattern should not forward %v", cEvent)
 	}
 
-	if forward := p.processEvent(goInFolerEvent); forward != true {
-		t.Errorf("*.go pattern should forward %v", goInFolerEvent)
+	if forward := p.processEvent(goInFolderEvent); forward != true {
+		t.Errorf("*.go pattern should forward %v", goInFolderEvent)
 	}
 }
 
 func TestMultiplePatterns(t *testing.T) {
-	p := newPipeline(&Options{Pattern: "*.go,*.c"})
+	p := newPipeline(&Options{Pattern: "*.go,*.c"}, nil)
 
 	if forward := p.processEvent(goEvent); forward != true {
 		t.Errorf("*.go,*.c pattern should forward %v", goEvent)
@@ -178,7 +178,7 @@ func TestMultiplePatterns(t *testing.T) {
   Throttle
 */
 func TestThrottleSameEvent(t *testing.T) {
-	p := newPipeline(&Options{Throttle: true})
+	p := newPipeline(&Options{Throttle: true}, nil)
 
 	if forward := p.processEvent(goEvent); forward != true {
 		t.Errorf("Throttle should forward %v event on leading edge", goEvent)
@@ -190,7 +190,7 @@ func TestThrottleSameEvent(t *testing.T) {
 }
 
 func TestThrottleDifferentEvents(t *testing.T) {
-	p := newPipeline(&Options{Throttle: true})
+	p := newPipeline(&Options{Throttle: true}, nil)
 
 	if forward := p.processEvent(goEvent); forward != true {
 		t.Errorf("Throttle should forward %v event", goEvent)
@@ -201,5 +201,28 @@ func TestThrottleDifferentEvents(t *testing.T) {
 }
 
 /*
-  Autowatch
+  AutoWatch
 */
+var (
+	folderEvent = &fakeEvent{create: true, name: "folder/", description: "folder"}
+)
+
+type fakeWatch int
+
+func (w *fakeWatch) watch(path string, pipeline pipeline) error {
+	*w++
+	return nil
+}
+
+func TestAutoWatch(t *testing.T) {
+	w := fakeWatch(0)
+	p := newPipeline(&Options{Recursive: true}, &w)
+
+	if forward := p.processEvent(folderEvent); forward != true {
+		t.Errorf("AutoWatch should forward %v event", folderEvent)
+	}
+
+	if w != 1 {
+		t.Errorf("Expected AutoWatch to call watch once, but called %d times.", w)
+	}
+}

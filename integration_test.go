@@ -47,7 +47,7 @@ func TestFsnotifyRecursive(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	// Add a watch for testDir
-	err = watcher.WatchPath(testDir, &fsnotify.Options{Recursive: true, Hidden: true})
+	err = watcher.WatchPath(testDir, &fsnotify.Options{Recursive: true})
 	if err != nil {
 		t.Fatalf("watcher.Watch() failed: %s", err)
 	}

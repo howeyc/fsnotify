@@ -22,6 +22,11 @@ type Event interface {
 	Path() string // relative path to the file
 }
 
+// watcher is an internal interface needed for autoWatchStep
+type watcher interface {
+	watch(path string, pipeline pipeline) error
+}
+
 /*
   A pipeline to process events
 */
@@ -33,6 +38,7 @@ type pipeline struct {
 	lastEventAt    map[string]time.Time // file name -> last ran for throttling
 	lastEventMutex sync.Mutex
 	steps          []stepFn // enabled pipeline steps to run
+	watcher        watcher
 }
 
 // stepFn filters an event, returning true to forward it on
@@ -42,8 +48,8 @@ type stepFn func(*pipeline, Event) bool
 const maxSteps = 6
 
 // newPipeline creates a pipeline and enables the steps
-func newPipeline(opt *Options) pipeline {
-	p := pipeline{steps: make([]stepFn, 0, maxSteps)}
+func newPipeline(opt *Options, watcher watcher) pipeline {
+	p := pipeline{steps: make([]stepFn, 0, maxSteps), watcher: watcher}
 
 	// setup pipeline steps, order matters
 
@@ -125,7 +131,7 @@ func (p *pipeline) autoWatchStep(event Event) bool {
 			// eg. stat .subl513.tmp : no such file or directory
 		} else if fi.IsDir() {
 			// Detected new directory, watch with same options
-			// err = p.watcher.watch(event.Path(), p)
+			// err = p.watcher.watch(event.Path(), *p)
 			// if err != nil {
 			//   p.watcher.Error <- err
 			// }
