@@ -20,37 +20,25 @@ const (
 func (w *Watcher) purgeEvents() {
 	for ev := range w.internalEvent {
 		sendEvent := false
-		w.fsnmut.Lock()
-		fsnFlags := w.fsnFlags[ev.Name]
-		w.fsnmut.Unlock()
 
-		if (fsnFlags&FSN_CREATE == FSN_CREATE) && ev.IsCreate() {
+		if (ev.fsnFlags&FSN_CREATE == FSN_CREATE) && ev.IsCreate() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&FSN_MODIFY == FSN_MODIFY) && ev.IsModify() {
+		if (ev.fsnFlags&FSN_MODIFY == FSN_MODIFY) && ev.IsModify() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&FSN_DELETE == FSN_DELETE) && ev.IsDelete() {
+		if (ev.fsnFlags&FSN_DELETE == FSN_DELETE) && ev.IsDelete() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
+		if (ev.fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
 			sendEvent = true
 		}
 
 		if sendEvent {
 			w.Event <- ev
-		}
-
-		// If there's no file, then no more events for user
-		// BSD must keep watch for internal use (watches DELETEs to keep track
-		// what files exist for create events)
-		if ev.IsDelete() {
-			w.fsnmut.Lock()
-			delete(w.fsnFlags, ev.Name)
-			w.fsnmut.Unlock()
 		}
 	}
 
