@@ -182,7 +182,7 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 
 // Watch adds path to the watched file set, watching all events.
 func (w *Watcher) watch(path string) error {
-	return w.addWatch(path, sys_AGNOSTIC_EVENTS | sys_IN_CLOSE_WRITE | sys_IN_CLOSE_NOWRITE)
+	return w.addWatch(path, sys_AGNOSTIC_EVENTS|sys_IN_CLOSE_WRITE|sys_IN_CLOSE_NOWRITE)
 }
 
 // RemoveWatch removes path from the watched file set.

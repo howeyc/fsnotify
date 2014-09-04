@@ -12,8 +12,9 @@ const (
 	FSN_MODIFY = 2
 	FSN_DELETE = 4
 	FSN_RENAME = 8
+	FSN_CLOSE  = 16
 
-	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE
+	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE | FSN_CLOSE
 )
 
 // Purge events from interal chan to external chan if passes filter
@@ -37,6 +38,10 @@ func (w *Watcher) purgeEvents() {
 		}
 
 		if (fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
+			sendEvent = true
+		}
+
+		if (fsnFlags&FSN_CLOSE == FSN_CLOSE) && ev.IsClose() {
 			sendEvent = true
 		}
 
@@ -101,6 +106,10 @@ func (e *FileEvent) String() string {
 
 	if e.IsAttrib() {
 		events += "|" + "ATTRIB"
+	}
+
+	if e.IsClose() {
+		events += "|" + "CLOSE"
 	}
 
 	if len(events) > 0 {
