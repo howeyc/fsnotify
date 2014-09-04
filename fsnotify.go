@@ -8,13 +8,13 @@ package fsnotify
 import "fmt"
 
 const (
-	FSN_CREATE = 1
-	FSN_MODIFY = 2
-	FSN_DELETE = 4
-	FSN_RENAME = 8
-	FSN_CLOSE  = 16
+	FSN_CREATE      = 1
+	FSN_MODIFY      = 2
+	FSN_DELETE      = 4
+	FSN_RENAME      = 8
+	FSN_CLOSE_WRITE = 16
 
-	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE | FSN_CLOSE
+	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE | FSN_CLOSE_WRITE
 )
 
 // Purge events from interal chan to external chan if passes filter
@@ -41,7 +41,7 @@ func (w *Watcher) purgeEvents() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&FSN_CLOSE == FSN_CLOSE) && ev.IsClose() {
+		if (fsnFlags&FSN_CLOSE_WRITE == FSN_CLOSE_WRITE) && ev.IsCloseWrite() {
 			sendEvent = true
 		}
 
@@ -108,8 +108,8 @@ func (e *FileEvent) String() string {
 		events += "|" + "ATTRIB"
 	}
 
-	if e.IsClose() {
-		events += "|" + "CLOSE"
+	if e.IsCloseWrite() {
+		events += "|" + "CLOSE_WRITE"
 	}
 
 	if len(events) > 0 {

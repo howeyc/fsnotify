@@ -88,8 +88,8 @@ func (e *FileEvent) IsAttrib() bool {
 }
 
 // IsClose reports whether the FileEvent was triggered by the closing of a file
-func (e *FileEvent) IsClose() bool {
-	return ((e.mask&sys_IN_CLOSE_NOWRITE) == sys_IN_CLOSE_NOWRITE || (e.mask&sys_IN_CLOSE_WRITE) == sys_IN_CLOSE_WRITE)
+func (e *FileEvent) IsCloseWrite() bool {
+	return (e.mask & sys_IN_CLOSE_WRITE) == sys_IN_CLOSE_WRITE
 }
 
 type watch struct {
@@ -182,7 +182,7 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 
 // Watch adds path to the watched file set, watching all events.
 func (w *Watcher) watch(path string) error {
-	return w.addWatch(path, sys_AGNOSTIC_EVENTS|sys_IN_CLOSE_WRITE|sys_IN_CLOSE_NOWRITE)
+	return w.addWatch(path, sys_AGNOSTIC_EVENTS|sys_IN_CLOSE_WRITE)
 }
 
 // RemoveWatch removes path from the watched file set.
