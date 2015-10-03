@@ -44,7 +44,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	
+	// Hang so program doesn't exit
 	<-done
 
 	/* ... do stuff ... */
