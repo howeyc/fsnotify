@@ -57,9 +57,10 @@ const (
 )
 
 type FileEvent struct {
-	mask   uint32 // Mask of events
-	cookie uint32 // Unique cookie associating related events (for rename(2))
-	Name   string // File name (optional)
+	mask     uint32 // Mask of events
+	cookie   uint32 // Unique cookie associating related events (for rename(2))
+	fsnFlags uint32 // Filter flags
+	Name     string // File name (optional)
 }
 
 // IsCreate reports whether the FileEvent was triggered by a creation
@@ -271,6 +272,16 @@ func (w *Watcher) readEvents() {
 						w.fsnFlags[event.Name] = FSN_ALL
 					}
 				}
+
+				event.fsnFlags = w.fsnFlags[event.Name]
+
+				// If there's no file, then no more events for user
+				// BSD must keep watch for internal use (watches DELETEs to keep track
+				// what files exist for create events)
+				if event.IsDelete() {
+					delete(w.fsnFlags, event.Name)
+				}
+
 				w.fsnmut.Unlock()
 
 				w.internalEvent <- event
