@@ -150,7 +150,7 @@ func (w *Watcher) Close() error {
 
 // AddWatch adds path to the watched file set.
 // The flags are interpreted as described in inotify_add_watch(2).
-func (w *Watcher) addWatch(path string, flags uint32) error {
+func (w *Watcher) AddWatch(path string, flags uint32) error {
 	if w.isClosed {
 		return errors.New("inotify instance already closed")
 	}
@@ -177,7 +177,7 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 
 // Watch adds path to the watched file set, watching all events.
 func (w *Watcher) watch(path string) error {
-	return w.addWatch(path, sys_AGNOSTIC_EVENTS)
+	return w.AddWatch(path, sys_AGNOSTIC_EVENTS)
 }
 
 // RemoveWatch removes path from the watched file set.
