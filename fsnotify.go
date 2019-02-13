@@ -62,7 +62,7 @@ func (w *Watcher) Watch(path string) error {
 	return w.WatchFlags(path, FSN_ALL)
 }
 
-// Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
+// WatchFlags: Watch a given file path for a particular set of notifications (FSN_MODIFY etc.)
 func (w *Watcher) WatchFlags(path string, flags uint32) error {
 	w.fsnmut.Lock()
 	w.fsnFlags[path] = flags
@@ -70,7 +70,7 @@ func (w *Watcher) WatchFlags(path string, flags uint32) error {
 	return w.watch(path)
 }
 
-// Remove a watch on a file
+// RemoveWatch removes a watch on a file
 func (w *Watcher) RemoveWatch(path string) error {
 	w.fsnmut.Lock()
 	delete(w.fsnFlags, path)
