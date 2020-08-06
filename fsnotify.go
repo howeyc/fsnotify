@@ -8,12 +8,13 @@ package fsnotify
 import "fmt"
 
 const (
-	FSN_CREATE = 1
-	FSN_MODIFY = 2
-	FSN_DELETE = 4
-	FSN_RENAME = 8
+	FSN_CREATE = 1 << iota
+	FSN_MODIFY
+	FSN_DELETE
+	FSN_RENAME
+	FSN_CLOSE_WRITE
 
-	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE
+	FSN_ALL = FSN_MODIFY | FSN_DELETE | FSN_RENAME | FSN_CREATE | FSN_CLOSE_WRITE
 )
 
 // Purge events from interal chan to external chan if passes filter
@@ -37,6 +38,26 @@ func (w *Watcher) purgeEvents() {
 		}
 
 		if (fsnFlags&FSN_RENAME == FSN_RENAME) && ev.IsRename() {
+			sendEvent = true
+		}
+
+		// In some cases, we make sure a file change is finished before we read it.
+		// So how do you do that? Try using IN_CLOSE_WRITE instead.
+		//
+		// https://stackoverflow.com/questions/32377517/inotify-event-in-modify-occurring-twice-for-tftp-put/32424150
+		// Q: What is the difference between IN_MODIFY and IN_CLOSE_WRITE?
+		// The IN_MODIFY event is emitted on a file content change (e.g. via the write() syscall)
+		// while IN_CLOSE_WRITE occurs on closing the changed file.
+		// It means each change operation causes one IN_MODIFY event (it may occur many times during manipulations with an open file)
+		// whereas IN_CLOSE_WRITE is emitted only once (on closing the file).
+		//
+		// Q: Is it better to use IN_MODIFY or IN_CLOSE_WRITE?
+		// It varies from case to case. Usually it is more suitable to use IN_CLOSE_WRITE
+		// because if emitted the all changes on the appropriate file are safely written inside the file.
+		// The IN_MODIFY event needn't mean that a file change is finished (data may remain in memory buffers in the application).
+		// On the other hand, many logs and similar files must be monitored using IN_MODIFY -
+		// in such cases where these files are permanently open and thus no IN_CLOSE_WRITE can be emitted.
+		if (fsnFlags&FSN_CLOSE_WRITE == FSN_CLOSE_WRITE) && ev.IsCloseWrite() {
 			sendEvent = true
 		}
 
