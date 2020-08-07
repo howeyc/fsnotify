@@ -124,6 +124,10 @@ func (e *FileEvent) String() string {
 		events += "|" + "ATTRIB"
 	}
 
+	if e.IsCloseWrite() {
+		events += "|" + "CLOSE_WRITE"
+	}
+
 	if len(events) > 0 {
 		events = events[1:]
 	}
